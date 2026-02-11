@@ -1,7 +1,9 @@
 package com.itsm.caremycar.session
 
 import android.widget.Toast
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -200,6 +202,20 @@ fun Login(
             } else {
                 Text(text = "Ingresar")
             }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Row {
+            Text(text = "¿No eres miembro? ")
+
+            Text(
+                text = "Regístrate ahora",
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.clickable {
+                    onNavigateToRegister()
+                }
+            )
         }
     }
 }
