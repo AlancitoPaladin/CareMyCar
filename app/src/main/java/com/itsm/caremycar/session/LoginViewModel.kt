@@ -2,8 +2,9 @@ package com.itsm.caremycar.session
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.itsm.caremycar.repository.AuthRepository
+import com.itsm.caremycar.util.Resource
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -12,20 +13,14 @@ import javax.inject.Inject
 
 @HiltViewModel
 class LoginViewModel @Inject constructor(
-
+    private val authRepository: AuthRepository
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(LoginUiState())
     val uiState: StateFlow<LoginUiState> = _uiState.asStateFlow()
 
     fun login(email: String, password: String) {
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(
-                isLoading = true,
-                error = null
-            )
-
-            // Validación básica
-            if (email.isEmpty() || password.isEmpty()) {
+            if (email.isBlank() || password.isBlank()) {
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     error = "Por favor completa todos los campos"
@@ -33,23 +28,37 @@ class LoginViewModel @Inject constructor(
                 return@launch
             }
 
-            // Simular llamada al backend
-            delay(1000)
+            // Loading
+            _uiState.value = _uiState.value.copy(
+                isLoading = true,
+                error = null
+            )
 
-            // Aquí harías: authRepository.login(email, password)
-            val success = true // Simular éxito
+            // Llamada al repositorio
+            when (val result = authRepository.login(email, password)) {
+                is Resource.Success -> {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        isLoggedIn = true,
+                        user = result.data,
+                        error = null
+                    )
+                }
 
-            if (success) {
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    isLoggedIn = true
-                )
-            } else {
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    error = "Credenciales inválidas"
-                )
+                is Resource.Error -> {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        error = result.message
+                    )
+                }
+
+                is Resource.Loading -> {
+                }
             }
         }
+    }
+
+    fun clearError() {
+        _uiState.value = _uiState.value.copy(error = null)
     }
 }

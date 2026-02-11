@@ -1,0 +1,57 @@
+package com.itsm.caremycar.repository
+
+
+import com.itsm.caremycar.api.ApiService
+import com.itsm.caremycar.classes.User
+import com.itsm.caremycar.classes.toUser
+import com.itsm.caremycar.session.LoginRequest
+import com.itsm.caremycar.util.Resource
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import javax.inject.Inject
+import javax.inject.Singleton
+
+@Singleton
+class AuthRepository @Inject constructor(
+    private val authApiService: ApiService,
+    private val tokenManager: TokenManager
+)  {
+    suspend fun login(email: String, password: String): Resource<User> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val response = authApiService.login(
+                    LoginRequest(
+                        email = email.trim().lowercase(),
+                        password = password
+                    )
+                )
+
+                if (response.isSuccessful && response.body() != null) {
+                    val loginResponse = response.body()!!
+
+                    // Guardar token
+                    tokenManager.saveToken(loginResponse.accessToken)
+
+                    // Convertir y retornar usuario
+                    Resource.Success(loginResponse.user.toUser())
+                } else {
+                    val errorMsg = when (response.code()) {
+                        401 -> "Credenciales inválidas"
+                        else -> "Error al iniciar sesión"
+                    }
+                    Resource.Error(errorMsg)
+                }
+            } catch (e: Exception) {
+                Resource.Error(e.localizedMessage ?: "Error de conexión")
+            }
+        }
+    }
+
+    suspend fun logout() {
+        withContext(Dispatchers.IO) {
+            tokenManager.clearToken()
+        }
+    }
+
+    fun isLoggedIn(): Boolean = tokenManager.getToken() != null
+}
