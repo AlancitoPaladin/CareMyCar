@@ -66,7 +66,6 @@ class AuthRepository @Inject constructor(
                 if (response.isSuccessful && response.body() != null) {
                     val registerResponse = response.body()!!
 
-                    // Convertir y retornar usuario registrado
                     Resource.Success(registerResponse.user.toUser())
                 } else {
                     val errorMsg = when (response.code()) {

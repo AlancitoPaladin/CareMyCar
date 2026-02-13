@@ -42,8 +42,6 @@ fun AppNavigation(navController: NavHostController = rememberNavController()) {
 
         composable("home/{role}") { backStackEntry ->
             val role = backStackEntry.arguments?.getString("role")
-            // Tu pantalla Home
         }
-
     }
 }
