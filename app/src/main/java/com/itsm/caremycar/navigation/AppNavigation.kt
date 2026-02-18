@@ -6,6 +6,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.itsm.caremycar.screens.agency.UserScreen
 import com.itsm.caremycar.session.Login
 import com.itsm.caremycar.session.LoginViewModel
 import com.itsm.caremycar.session.Register
@@ -19,8 +20,9 @@ fun AppNavigation(navController: NavHostController = rememberNavController()) {
             Login(
                 viewModel = viewModel,
                 onNavigateToRegister = { navController.navigate("register") },
-                onNavigateToHome = {
-                    navController.navigate("home") {
+                onNavigateToHome = { role ->
+                    val destination = if (role == "admin") "admin_screen" else "user_screen"
+                    navController.navigate(destination) {
                         popUpTo("login") { inclusive = true }
                     }
                 }
@@ -33,15 +35,19 @@ fun AppNavigation(navController: NavHostController = rememberNavController()) {
                     navController.popBackStack()
                 },
                 onNavigateToHome = {
-                    navController.navigate("home") {
+                    navController.navigate("user_screen") {
                         popUpTo("register") { inclusive = true }
                     }
                 }
             )
         }
 
-        composable("home/{role}") { backStackEntry ->
-            val role = backStackEntry.arguments?.getString("role")
+        composable("user_screen") {
+            UserScreen()
+        }
+
+        composable("admin_screen") {
+            // AdminScreen() // ← cuando lo tengas
         }
     }
 }

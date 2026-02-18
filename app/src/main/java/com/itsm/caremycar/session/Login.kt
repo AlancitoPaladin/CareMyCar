@@ -69,16 +69,16 @@ fun Login(
     val context = LocalContext.current
 
     // Navegar cuando login exitoso
-    LaunchedEffect(uiState.isLoggedIn) {
+    LaunchedEffect(key1 = uiState.isLoggedIn, key2 = uiState.user) {
         if (uiState.isLoggedIn && uiState.user != null) {
-            onNavigateToHome(uiState.user!!.role)
+            onNavigateToHome(uiState.user!!.role ?: "user")
         }
     }
 
-    // Mostrar errores
     LaunchedEffect(uiState.error) {
         uiState.error?.let { error ->
-            Toast.makeText(context, error, Toast.LENGTH_SHORT).show()
+            android.util.Log.e("LOGIN_ERROR", "Error recibido: $error")
+            Toast.makeText(context, error, Toast.LENGTH_LONG).show()
             viewModel.clearError()
         }
     }

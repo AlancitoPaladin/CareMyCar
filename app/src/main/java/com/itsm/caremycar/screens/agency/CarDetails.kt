@@ -1,20 +1,14 @@
 package com.itsm.caremycar.screens.agency
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.BottomAppBar
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -30,17 +24,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 
 @Preview(showBackground = true)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun UserScreen() {
+fun DetailCarScreen() {
     var presses by remember { mutableIntStateOf(0) }
 
     Scaffold(
@@ -83,66 +74,6 @@ fun UserScreen() {
 
             Spacer(modifier = Modifier.height(3.dp))
 
-            VehicleCard(onClick = {})
-        }
-    }
-}
-
-@Composable
-fun VehicleCard(
-    onClick: () -> Unit
-) {
-    ElevatedCard(
-        onClick = onClick,
-        colors = CardDefaults.cardColors(
-            containerColor = Color.Black,
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
-        modifier = Modifier
-            .size(width = 360.dp, height = 150.dp)
-            .padding(8.dp) // Espaciado exterior
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(12.dp)
-        ) {
-            // Imagen del vehículo (Descomenta cuando uses Glide)
-            /*
-            MyGlideImageWithView(
-                imageUrl = imageUrl,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .fillMaxHeight(0.75f) // Bajamos un poco para dar aire al texto
-                    .clip(RoundedCornerShape(16.dp))
-            )
-            */
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .align(Alignment.BottomCenter),
-                verticalAlignment = Alignment.CenterVertically // Centra el texto con la estrella
-            ) {
-                Text(
-                    text = "",
-                    fontSize = 14.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    color = Color.White,
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.weight(1f)
-                )
-
-                Text(
-                    text = "rating",
-                    fontSize = 12.sp,
-                    color = Color.White,
-                    modifier = Modifier.padding(horizontal = 4.dp)
-                )
-
-                Text(text = "★", color = Color.Yellow)
-            }
         }
     }
 }
