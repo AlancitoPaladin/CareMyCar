@@ -21,3 +21,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "CareMyCar"
 include(":app")
+include(":app:pedidos")
