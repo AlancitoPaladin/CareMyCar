@@ -18,7 +18,9 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.Button
@@ -39,6 +41,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
@@ -52,12 +57,12 @@ import com.itsm.caremycar.vehicle.Vehicle
 fun UserScreen(
     onAddVehicleClick: () -> Unit = {},
     onVehicleClick: (String) -> Unit = {},
-    onProductsClick: () -> Unit = {},
     shouldRefreshOnResume: Boolean = false,
     onRefreshHandled: () -> Unit = {},
     viewModel: VehicleViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    var selectedTab by rememberSaveable { mutableIntStateOf(0) }
 
     LaunchedEffect(shouldRefreshOnResume) {
         if (shouldRefreshOnResume) {
@@ -73,10 +78,12 @@ fun UserScreen(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     titleContentColor = MaterialTheme.colorScheme.primary
                 ),
-                title = { Text("Mis vehículos") },
+                title = { Text(if (selectedTab == 0) "Mis vehículos" else "Productos") },
                 actions = {
-                    IconButton(onClick = viewModel::loadVehicles) {
-                        Icon(Icons.Default.Refresh, contentDescription = "Recargar")
+                    if (selectedTab == 0) {
+                        IconButton(onClick = viewModel::loadVehicles) {
+                            Icon(Icons.Default.Refresh, contentDescription = "Recargar")
+                        }
                     }
                 }
             )
@@ -87,38 +94,62 @@ fun UserScreen(
                 contentColor = MaterialTheme.colorScheme.primary
             ) {
                 TextButton(
-                    onClick = {},
+                    onClick = { selectedTab = 0 },
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text(
-                        text = "Mis vehículos",
-                        color = MaterialTheme.colorScheme.primary
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.DirectionsCar,
+                            contentDescription = "Mis vehículos",
+                            tint = if (selectedTab == 0) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = "  Mis vehículos",
+                            color = if (selectedTab == 0) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
                 TextButton(
-                    onClick = onProductsClick,
+                    onClick = { selectedTab = 1 },
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text(
-                        text = "Productos",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Storefront,
+                            contentDescription = "Productos",
+                            tint = if (selectedTab == 1) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = "  Productos",
+                            color = if (selectedTab == 1) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = onAddVehicleClick) {
-                Icon(Icons.Default.Add, contentDescription = "Agregar vehículo")
+            if (selectedTab == 0) {
+                FloatingActionButton(onClick = onAddVehicleClick) {
+                    Icon(Icons.Default.Add, contentDescription = "Agregar vehículo")
+                }
             }
         }
     ) { innerPadding ->
-        UserScreenContent(
-            innerPadding = innerPadding,
-            uiState = uiState,
-            onRetry = viewModel::loadVehicles,
-            onVehicleClick = onVehicleClick,
-            onDeleteVehicleClick = viewModel::requestDeleteVehicle
-        )
+        if (selectedTab == 0) {
+            UserScreenContent(
+                innerPadding = innerPadding,
+                uiState = uiState,
+                onRetry = viewModel::loadVehicles,
+                onVehicleClick = onVehicleClick,
+                onDeleteVehicleClick = viewModel::requestDeleteVehicle
+            )
+        } else {
+            ProductDetailsContent(innerPadding = innerPadding)
+        }
     }
 
     val pendingDelete = uiState.vehiclePendingDelete

@@ -59,7 +59,6 @@ fun AppNavigation(navController: NavHostController = rememberNavController()) {
                 onVehicleClick = { vehicleId ->
                     navController.navigate("car_details/$vehicleId")
                 },
-                onProductsClick = { navController.navigate("product_details") },
                 shouldRefreshOnResume = vehicleCreated,
                 onRefreshHandled = {
                     backStackEntry.savedStateHandle["vehicle_created"] = false
