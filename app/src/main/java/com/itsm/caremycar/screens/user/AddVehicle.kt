@@ -2,16 +2,22 @@ package com.itsm.caremycar.screens.user
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -29,10 +35,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.bumptech.glide.Glide
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -42,20 +53,29 @@ fun AddVehicle(
     viewModel: AddVehicleViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    var make by remember { mutableStateOf("") }
-    var model by remember { mutableStateOf("") }
+    var selectedMake by remember { mutableStateOf("") }
+    var selectedModel by remember { mutableStateOf("") }
+    var makeExpanded by remember { mutableStateOf(false) }
+    var modelExpanded by remember { mutableStateOf(false) }
     var year by remember { mutableStateOf("") }
     var mileage by remember { mutableStateOf("") }
     var color by remember { mutableStateOf("") }
-    var fuelType by remember { mutableStateOf("") }
-    var transmission by remember { mutableStateOf("") }
-    var vehicleType by remember { mutableStateOf("") }
+    val context = LocalContext.current
 
     LaunchedEffect(uiState.isSuccess) {
         if (uiState.isSuccess) {
             viewModel.consumeSuccess()
             onVehicleCreated()
         }
+    }
+
+    val makes = uiState.catalogVehicles.map { it.make }.distinct().sorted()
+    val modelsForMake = uiState.catalogVehicles
+        .filter { it.make == selectedMake }
+        .map { it.model }
+        .sorted()
+    val selectedCatalogVehicle = uiState.catalogVehicles.find {
+        it.make == selectedMake && it.model == selectedModel
     }
 
     Scaffold(
@@ -93,25 +113,126 @@ fun AddVehicle(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Text(
-                    text = "Completa los datos minimos para crear el vehículo",
+                    text = "Selecciona del catálogo y completa los datos restantes",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
+                if (uiState.isCatalogLoading) {
+                    CircularProgressIndicator(modifier = Modifier.padding(vertical = 8.dp))
+                }
+
+                ExposedDropdownMenuBox(
+                    expanded = makeExpanded,
+                    onExpandedChange = { makeExpanded = !makeExpanded }
+                ) {
+                    OutlinedTextField(
+                        value = selectedMake,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Marca *") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = makeExpanded) },
+                        modifier = Modifier
+                            .menuAnchor()
+                            .fillMaxWidth()
+                    )
+                    DropdownMenu(
+                        expanded = makeExpanded,
+                        onDismissRequest = { makeExpanded = false }
+                    ) {
+                        makes.forEach { make ->
+                            DropdownMenuItem(
+                                text = { Text(make) },
+                                onClick = {
+                                    selectedMake = make
+                                    selectedModel = ""
+                                    makeExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                ExposedDropdownMenuBox(
+                    expanded = modelExpanded,
+                    onExpandedChange = { modelExpanded = !modelExpanded }
+                ) {
+                    OutlinedTextField(
+                        value = selectedModel,
+                        onValueChange = {},
+                        readOnly = true,
+                        enabled = selectedMake.isNotBlank(),
+                        label = { Text("Modelo *") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = modelExpanded) },
+                        modifier = Modifier
+                            .menuAnchor()
+                            .fillMaxWidth()
+                    )
+                    DropdownMenu(
+                        expanded = modelExpanded,
+                        onDismissRequest = { modelExpanded = false }
+                    ) {
+                        modelsForMake.forEach { model ->
+                            DropdownMenuItem(
+                                text = { Text(model) },
+                                onClick = {
+                                    selectedModel = model
+                                    modelExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+
                 OutlinedTextField(
-                    value = make,
-                    onValueChange = { make = it },
-                    label = { Text("Marca *") },
+                    value = selectedCatalogVehicle?.vehicleType.orEmpty(),
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Tipo de vehículo") },
                     modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
+                    singleLine = true,
+                    enabled = selectedCatalogVehicle != null
                 )
                 OutlinedTextField(
-                    value = model,
-                    onValueChange = { model = it },
-                    label = { Text("Modelo *") },
+                    value = selectedCatalogVehicle?.fuelType.orEmpty(),
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Combustible") },
                     modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
+                    singleLine = true,
+                    enabled = selectedCatalogVehicle != null
                 )
+                OutlinedTextField(
+                    value = selectedCatalogVehicle?.transmission.orEmpty(),
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Transmisión") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    enabled = selectedCatalogVehicle != null
+                )
+
+                val firstImageUrl = selectedCatalogVehicle?.imageUrls?.firstOrNull()
+                if (firstImageUrl != null) {
+                    AndroidView(
+                        factory = { ctx ->
+                            android.widget.ImageView(ctx).apply {
+                                adjustViewBounds = false
+                                scaleType = android.widget.ImageView.ScaleType.CENTER_CROP
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth(0.92f)
+                            .height(190.dp)
+                            .align(Alignment.CenterHorizontally)
+                            .clip(RoundedCornerShape(14.dp))
+                            .padding(vertical = 4.dp),
+                        update = { imageView ->
+                            Glide.with(context).load(firstImageUrl).into(imageView)
+                        }
+                    )
+                }
+
                 OutlinedTextField(
                     value = year,
                     onValueChange = { year = it },
@@ -135,27 +256,6 @@ fun AddVehicle(
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true
                 )
-                OutlinedTextField(
-                    value = fuelType,
-                    onValueChange = { fuelType = it },
-                    label = { Text("Combustible (gasolina/diesel/electrico/hibrido)") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
-                )
-                OutlinedTextField(
-                    value = transmission,
-                    onValueChange = { transmission = it },
-                    label = { Text("Transmisión (manual/automatica)") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
-                )
-                OutlinedTextField(
-                    value = vehicleType,
-                    onValueChange = { vehicleType = it },
-                    label = { Text("Tipo (sedan/suv/pickup/etc)") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
-                )
 
                 uiState.error?.let { error ->
                     Text(
@@ -167,17 +267,13 @@ fun AddVehicle(
                 Button(
                     onClick = {
                         viewModel.createVehicle(
-                            make = make,
-                            model = model,
+                            catalogVehicleId = selectedCatalogVehicle?.id,
                             year = year,
                             mileage = mileage,
-                            color = color,
-                            fuelType = fuelType,
-                            transmission = transmission,
-                            vehicleType = vehicleType
+                            color = color
                         )
                     },
-                    enabled = !uiState.isLoading,
+                    enabled = !uiState.isLoading && selectedCatalogVehicle != null,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = 8.dp)

@@ -59,6 +59,11 @@ fun AppNavigation(navController: NavHostController = rememberNavController()) {
                 onVehicleClick = { vehicleId ->
                     navController.navigate("car_details/$vehicleId")
                 },
+                onLogout = {
+                    navController.navigate("login") {
+                        popUpTo(navController.graph.id) { inclusive = true }
+                    }
+                },
                 shouldRefreshOnResume = vehicleCreated,
                 onRefreshHandled = {
                     backStackEntry.savedStateHandle["vehicle_created"] = false
@@ -96,7 +101,13 @@ fun AppNavigation(navController: NavHostController = rememberNavController()) {
         }
 
         composable("admin_screen") {
-            MenuAgency()
+            MenuAgency(
+                onLogout = {
+                    navController.navigate("login") {
+                        popUpTo(navController.graph.id) { inclusive = true }
+                    }
+                }
+            )
         }
     }
 }

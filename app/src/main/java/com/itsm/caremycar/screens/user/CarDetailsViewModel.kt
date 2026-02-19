@@ -45,39 +45,18 @@ class CarDetailsViewModel @Inject constructor(
 
     fun updateVehicle(
         vehicleId: String,
-        make: String,
-        model: String,
-        year: String,
-        mileage: String,
-        color: String,
-        fuelType: String,
-        transmission: String,
-        vehicleType: String
+        mileage: String
     ) {
         val current = _uiState.value.vehicle ?: return
-        val yearInt = year.trim().toIntOrNull()
         val mileageInt = mileage.trim().toIntOrNull()
 
-        if (make.isBlank() || model.isBlank() || yearInt == null || mileageInt == null) {
-            _uiState.value = _uiState.value.copy(error = "Marca, modelo, año y kilometraje son requeridos.")
+        if (mileageInt == null) {
+            _uiState.value = _uiState.value.copy(error = "El kilometraje debe ser numérico.")
             return
         }
 
         val payload = mutableMapOf<String, Any>()
-        if (make.trim() != (current.make ?: "")) payload["make"] = make.trim()
-        if (model.trim() != (current.model ?: "")) payload["model"] = model.trim()
-        if (yearInt != (current.year ?: 0)) payload["year"] = yearInt
         if (mileageInt != (current.currentMileage?.toInt() ?: 0)) payload["current_mileage"] = mileageInt
-        if (color.trim() != (current.color ?: "")) payload["color"] = color.trim()
-        if (fuelType.trim().lowercase() != (current.fuelType ?: "").lowercase()) {
-            payload["fuel_type"] = fuelType.trim().lowercase()
-        }
-        if (transmission.trim().lowercase() != (current.transmission ?: "").lowercase()) {
-            payload["transmission"] = transmission.trim().lowercase()
-        }
-        if (vehicleType.trim().lowercase() != (current.vehicleType ?: "").lowercase()) {
-            payload["vehicle_type"] = vehicleType.trim().lowercase()
-        }
 
         if (payload.isEmpty()) {
             _uiState.value = _uiState.value.copy(successMessage = "No hay cambios para guardar.", error = null)

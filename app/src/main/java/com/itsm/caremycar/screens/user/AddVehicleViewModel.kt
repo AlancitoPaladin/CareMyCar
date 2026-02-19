@@ -20,39 +20,57 @@ class AddVehicleViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(AddVehicleUiState())
     val uiState: StateFlow<AddVehicleUiState> = _uiState.asStateFlow()
 
+    init {
+        loadCatalogVehicles()
+    }
+
+    fun loadCatalogVehicles() {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isCatalogLoading = true, error = null)
+            when (val result = vehicleRepository.listCatalogVehicles()) {
+                is Resource.Success -> {
+                    _uiState.value = _uiState.value.copy(
+                        isCatalogLoading = false,
+                        catalogVehicles = result.data,
+                        error = null
+                    )
+                }
+
+                is Resource.Error -> {
+                    _uiState.value = _uiState.value.copy(
+                        isCatalogLoading = false,
+                        error = result.message
+                    )
+                }
+
+                Resource.Loading -> Unit
+            }
+        }
+    }
+
     fun createVehicle(
-        make: String,
-        model: String,
+        catalogVehicleId: String?,
         year: String,
         mileage: String,
-        color: String,
-        fuelType: String,
-        transmission: String,
-        vehicleType: String
+        color: String
     ) {
-        val makeTrimmed = make.trim()
-        val modelTrimmed = model.trim()
         val yearInt = year.trim().toIntOrNull()
         val mileageInt = mileage.trim().toIntOrNull()
 
-        if (makeTrimmed.isBlank() || modelTrimmed.isBlank() || yearInt == null || mileageInt == null) {
+        if (catalogVehicleId.isNullOrBlank() || yearInt == null || mileageInt == null) {
             _uiState.value = _uiState.value.copy(
                 isLoading = false,
                 isSuccess = false,
-                error = "Completa marca, modelo, anio y kilometraje (numericos)."
+                error = "Selecciona un vehículo del catálogo y completa año/kilometraje."
             )
             return
         }
 
         val request = CreateVehicleRequest(
-            make = makeTrimmed,
-            model = modelTrimmed,
+            catalogVehicleId = catalogVehicleId,
             year = yearInt,
             currentMileage = mileageInt,
-            color = color.trim().ifBlank { null },
-            fuelType = fuelType.trim().lowercase().ifBlank { null },
-            transmission = transmission.trim().lowercase().ifBlank { null },
-            vehicleType = vehicleType.trim().lowercase().ifBlank { null }
+            color = color.trim().ifBlank { null }
         )
 
         viewModelScope.launch {

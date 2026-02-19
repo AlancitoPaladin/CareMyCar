@@ -56,8 +56,10 @@ data class VehicleDto(
 )
 
 data class CreateVehicleRequest(
-    val make: String,
-    val model: String,
+    @SerializedName("catalog_vehicle_id")
+    val catalogVehicleId: String? = null,
+    val make: String? = null,
+    val model: String? = null,
     val year: Int,
     @SerializedName("current_mileage")
     val currentMileage: Int,
@@ -67,6 +69,33 @@ data class CreateVehicleRequest(
     val transmission: String? = null,
     @SerializedName("vehicle_type")
     val vehicleType: String? = null
+)
+
+data class CatalogVehicleListResponse(
+    val items: List<CatalogVehicleDto>
+)
+
+data class CatalogVehicleDto(
+    val id: String,
+    val make: String,
+    val model: String,
+    @SerializedName("vehicle_type")
+    val vehicleType: String,
+    @SerializedName("fuel_type")
+    val fuelType: String,
+    val transmission: String,
+    @SerializedName("image_urls")
+    val imageUrls: List<String>?
+)
+
+data class CatalogVehicle(
+    val id: String,
+    val make: String,
+    val model: String,
+    val vehicleType: String,
+    val fuelType: String,
+    val transmission: String,
+    val imageUrls: List<String>
 )
 
 fun VehicleDto.toVehicle(): Vehicle {
@@ -80,6 +109,18 @@ fun VehicleDto.toVehicle(): Vehicle {
         transmission = transmission,
         fuelType = fuelType,
         currentMileage = currentMileage,
+        imageUrls = imageUrls.orEmpty()
+    )
+}
+
+fun CatalogVehicleDto.toCatalogVehicle(): CatalogVehicle {
+    return CatalogVehicle(
+        id = id,
+        make = make,
+        model = model,
+        vehicleType = vehicleType,
+        fuelType = fuelType,
+        transmission = transmission,
         imageUrls = imageUrls.orEmpty()
     )
 }

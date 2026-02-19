@@ -3,11 +3,13 @@ package com.itsm.caremycar.screens.user
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.animation.AnimatedVisibility
@@ -15,10 +17,12 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DirectionsCar
+import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.material3.AlertDialog
@@ -42,14 +46,20 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.bumptech.glide.Glide
+import com.itsm.caremycar.session.LogoutViewModel
 import com.itsm.caremycar.vehicle.Vehicle
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -57,17 +67,28 @@ import com.itsm.caremycar.vehicle.Vehicle
 fun UserScreen(
     onAddVehicleClick: () -> Unit = {},
     onVehicleClick: (String) -> Unit = {},
+    onLogout: () -> Unit = {},
     shouldRefreshOnResume: Boolean = false,
     onRefreshHandled: () -> Unit = {},
-    viewModel: VehicleViewModel = hiltViewModel()
+    viewModel: VehicleViewModel = hiltViewModel(),
+    logoutViewModel: LogoutViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val logoutUiState by logoutViewModel.uiState.collectAsState()
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
+    var showLogoutDialog by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(shouldRefreshOnResume) {
         if (shouldRefreshOnResume) {
             viewModel.loadVehicles()
             onRefreshHandled()
+        }
+    }
+
+    LaunchedEffect(logoutUiState.isLoggedOut) {
+        if (logoutUiState.isLoggedOut) {
+            logoutViewModel.consumeLoggedOut()
+            onLogout()
         }
     }
 
@@ -84,6 +105,12 @@ fun UserScreen(
                         IconButton(onClick = viewModel::loadVehicles) {
                             Icon(Icons.Default.Refresh, contentDescription = "Recargar")
                         }
+                    }
+                    IconButton(
+                        onClick = { showLogoutDialog = true },
+                        enabled = !logoutUiState.isLoggingOut
+                    ) {
+                        Icon(Icons.Default.ExitToApp, contentDescription = "Cerrar sesión")
                     }
                 }
             )
@@ -160,6 +187,33 @@ fun UserScreen(
             error = uiState.deleteError,
             onConfirm = viewModel::confirmDeleteVehicle,
             onDismiss = viewModel::cancelDeleteVehicle
+        )
+    }
+
+    if (showLogoutDialog) {
+        AlertDialog(
+            onDismissRequest = { showLogoutDialog = false },
+            title = { Text("Cerrar sesión") },
+            text = { Text("¿Seguro que deseas cerrar sesión?") },
+            dismissButton = {
+                TextButton(
+                    onClick = { showLogoutDialog = false },
+                    enabled = !logoutUiState.isLoggingOut
+                ) {
+                    Text("Cancelar")
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showLogoutDialog = false
+                        logoutViewModel.logout()
+                    },
+                    enabled = !logoutUiState.isLoggingOut
+                ) {
+                    Text("Cerrar sesión")
+                }
+            }
         )
     }
 }
@@ -297,6 +351,9 @@ fun VehicleCard(
     onClick: () -> Unit,
     onDeleteClick: () -> Unit
 ) {
+    val context = LocalContext.current
+    val imageUrl = vehicle.imageUrls.firstOrNull()
+
     ElevatedCard(
         onClick = onClick,
         colors = CardDefaults.cardColors(
@@ -305,36 +362,62 @@ fun VehicleCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
-        Column(
+        Row(
             modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
+            if (imageUrl != null) {
+                AndroidView(
+                    factory = { ctx ->
+                        android.widget.ImageView(ctx).apply {
+                            scaleType = android.widget.ImageView.ScaleType.CENTER_CROP
+                        }
+                    },
+                    modifier = Modifier
+                        .width(96.dp)
+                        .height(72.dp)
+                        .clip(RoundedCornerShape(10.dp)),
+                    update = { imageView ->
+                        Glide.with(context).load(imageUrl).into(imageView)
+                    }
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .width(96.dp)
+                        .height(72.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                )
+            }
+
+            Column(
+                modifier = Modifier
+                    .padding(start = 12.dp)
+                    .weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 Text(
                     text = vehicle.title,
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.weight(1f)
+                    style = MaterialTheme.typography.titleMedium
                 )
-                IconButton(onClick = onDeleteClick) {
-                    Icon(
-                        imageVector = Icons.Default.Delete,
-                        contentDescription = "Eliminar vehículo",
-                        tint = MaterialTheme.colorScheme.error
-                    )
-                }
+                Text(
+                    text = vehicle.subtitle,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = "Km: ${vehicle.currentMileage?.toInt() ?: 0}",
+                    style = MaterialTheme.typography.labelLarge
+                )
             }
-            Text(
-                text = vehicle.subtitle,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-                text = "Km: ${vehicle.currentMileage?.toInt() ?: 0}",
-                style = MaterialTheme.typography.labelLarge
-            )
+
+            IconButton(onClick = onDeleteClick) {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = "Eliminar vehículo",
+                    tint = MaterialTheme.colorScheme.error
+                )
+            }
         }
     }
 }

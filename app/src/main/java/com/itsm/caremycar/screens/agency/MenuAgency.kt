@@ -27,11 +27,25 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.itsm.caremycar.session.LogoutViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Preview
 @Composable
-fun MenuAgency() {
+fun MenuAgency(
+    onLogout: () -> Unit = {},
+    logoutViewModel: LogoutViewModel = hiltViewModel()
+) {
+    val logoutUiState by logoutViewModel.uiState.collectAsState()
+    var showLogoutDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(logoutUiState.isLoggedOut) {
+        if (logoutUiState.isLoggedOut) {
+            logoutViewModel.consumeLoggedOut()
+            onLogout()
+        }
+    }
+
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
@@ -55,6 +69,18 @@ fun MenuAgency() {
                         )
                     }
                 },
+                actions = {
+                    IconButton(
+                        onClick = { showLogoutDialog = true },
+                        enabled = !logoutUiState.isLoggingOut
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ExitToApp,
+                            contentDescription = "Cerrar sesión",
+                            tint = Color.White
+                        )
+                    }
+                }
             )
         },
         containerColor = Color(0xFFF5F5F5)
@@ -166,6 +192,33 @@ fun MenuAgency() {
                 modifier = Modifier.padding(bottom = 8.dp)
             )
         }
+    }
+
+    if (showLogoutDialog) {
+        AlertDialog(
+            onDismissRequest = { showLogoutDialog = false },
+            title = { Text("Cerrar sesión") },
+            text = { Text("¿Seguro que deseas cerrar sesión?") },
+            dismissButton = {
+                TextButton(
+                    onClick = { showLogoutDialog = false },
+                    enabled = !logoutUiState.isLoggingOut
+                ) {
+                    Text("Cancelar")
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showLogoutDialog = false
+                        logoutViewModel.logout()
+                    },
+                    enabled = !logoutUiState.isLoggingOut
+                ) {
+                    Text("Cerrar sesión")
+                }
+            }
+        )
     }
 }
 
