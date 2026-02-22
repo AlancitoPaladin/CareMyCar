@@ -5,8 +5,20 @@ import com.itsm.caremycar.util.Resource
 import com.itsm.caremycar.vehicle.CatalogVehicle
 import com.itsm.caremycar.vehicle.CreateMaintenanceRequest
 import com.itsm.caremycar.vehicle.CreateVehicleRequest
+import com.itsm.caremycar.vehicle.MaintenanceRecommendation
 import com.itsm.caremycar.vehicle.MaintenanceRecord
+import com.itsm.caremycar.vehicle.MaintenanceDueSummary
+import com.itsm.caremycar.vehicle.CancelServiceOrderRequest
+import com.itsm.caremycar.vehicle.CompleteServiceOrderRequest
+import com.itsm.caremycar.vehicle.CreateServiceOrderRequest
+import com.itsm.caremycar.vehicle.ServiceOrder
+import com.itsm.caremycar.vehicle.ServiceQuote
+import com.itsm.caremycar.vehicle.StartServiceOrderRequest
+import com.itsm.caremycar.vehicle.toMaintenanceRecommendation
+import com.itsm.caremycar.vehicle.toMaintenanceDueSummary
 import com.itsm.caremycar.vehicle.toMaintenanceRecord
+import com.itsm.caremycar.vehicle.toServiceOrder
+import com.itsm.caremycar.vehicle.toServiceQuote
 import com.itsm.caremycar.vehicle.Vehicle
 import com.itsm.caremycar.vehicle.toCatalogVehicle
 import com.itsm.caremycar.vehicle.toVehicle
@@ -19,6 +31,225 @@ import javax.inject.Singleton
 class VehicleRepository @Inject constructor(
     private val apiService: ApiService
 ) {
+    suspend fun getServiceOrderQuote(vehicleId: String, serviceType: String): Resource<ServiceQuote> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val response = apiService.getServiceOrderQuote(
+                    vehicleId = vehicleId,
+                    payload = mapOf("service_type" to serviceType)
+                )
+                if (response.isSuccessful && response.body() != null) {
+                    Resource.Success(response.body()!!.quote.toServiceQuote())
+                } else {
+                    Resource.Error(
+                        parseBackendError(response.errorBody()?.string())
+                            ?: "No se pudo obtener la cotización."
+                    )
+                }
+            } catch (e: Exception) {
+                Resource.Error(e.localizedMessage ?: "Error de conexión")
+            }
+        }
+    }
+
+    suspend fun createServiceOrder(request: CreateServiceOrderRequest): Resource<ServiceOrder> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val response = apiService.createServiceOrder(request)
+                if (response.isSuccessful && response.body() != null) {
+                    Resource.Success(response.body()!!.order.toServiceOrder())
+                } else {
+                    Resource.Error(
+                        parseBackendError(response.errorBody()?.string())
+                            ?: "No se pudo crear la orden de servicio."
+                    )
+                }
+            } catch (e: Exception) {
+                Resource.Error(e.localizedMessage ?: "Error de conexión")
+            }
+        }
+    }
+
+    suspend fun listMyServiceOrders(): Resource<List<ServiceOrder>> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val response = apiService.listMyServiceOrders()
+                if (response.isSuccessful && response.body() != null) {
+                    Resource.Success(response.body()!!.items.map { it.toServiceOrder() })
+                } else {
+                    Resource.Error(
+                        parseBackendError(response.errorBody()?.string())
+                            ?: "No se pudieron cargar tus órdenes de servicio."
+                    )
+                }
+            } catch (e: Exception) {
+                Resource.Error(e.localizedMessage ?: "Error de conexión")
+            }
+        }
+    }
+
+    suspend fun listAllServiceOrders(status: String? = null): Resource<List<ServiceOrder>> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val response = apiService.listAllServiceOrders(status = status)
+                if (response.isSuccessful && response.body() != null) {
+                    Resource.Success(response.body()!!.items.map { it.toServiceOrder() })
+                } else {
+                    Resource.Error(
+                        parseBackendError(response.errorBody()?.string())
+                            ?: "No se pudieron cargar las órdenes."
+                    )
+                }
+            } catch (e: Exception) {
+                Resource.Error(e.localizedMessage ?: "Error de conexión")
+            }
+        }
+    }
+
+    suspend fun startServiceOrder(orderId: String, agencyNotes: String?): Resource<ServiceOrder> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val response = apiService.startServiceOrder(orderId, StartServiceOrderRequest(agencyNotes))
+                if (response.isSuccessful && response.body() != null) {
+                    Resource.Success(response.body()!!.order.toServiceOrder())
+                } else {
+                    Resource.Error(
+                        parseBackendError(response.errorBody()?.string())
+                            ?: "No se pudo iniciar la orden."
+                    )
+                }
+            } catch (e: Exception) {
+                Resource.Error(e.localizedMessage ?: "Error de conexión")
+            }
+        }
+    }
+
+    suspend fun completeServiceOrder(
+        orderId: String,
+        completionToken: String,
+        finalCost: Double?,
+        agencyNotes: String?,
+        mileage: Int?
+    ): Resource<ServiceOrder> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val response = apiService.completeServiceOrder(
+                    orderId,
+                    CompleteServiceOrderRequest(
+                        completionToken = completionToken,
+                        finalCost = finalCost,
+                        agencyNotes = agencyNotes,
+                        mileage = mileage
+                    )
+                )
+                if (response.isSuccessful && response.body() != null) {
+                    Resource.Success(response.body()!!.order.toServiceOrder())
+                } else {
+                    Resource.Error(
+                        parseBackendError(response.errorBody()?.string())
+                            ?: "No se pudo finalizar la orden."
+                    )
+                }
+            } catch (e: Exception) {
+                Resource.Error(e.localizedMessage ?: "Error de conexión")
+            }
+        }
+    }
+
+    suspend fun cancelServiceOrder(orderId: String, notes: String?): Resource<ServiceOrder> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val response = apiService.cancelServiceOrder(orderId, CancelServiceOrderRequest(notes))
+                if (response.isSuccessful && response.body() != null) {
+                    Resource.Success(response.body()!!.order.toServiceOrder())
+                } else {
+                    Resource.Error(
+                        parseBackendError(response.errorBody()?.string())
+                            ?: "No se pudo cancelar la orden."
+                    )
+                }
+            } catch (e: Exception) {
+                Resource.Error(e.localizedMessage ?: "Error de conexión")
+            }
+        }
+    }
+
+    suspend fun downloadServiceOrdersReport(
+        from: String? = null,
+        to: String? = null,
+        status: String? = "FINALIZADO"
+    ): Resource<ByteArray> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val response = apiService.downloadServiceOrdersReport(from = from, to = to, status = status)
+                if (response.isSuccessful && response.body() != null) {
+                    Resource.Success(response.body()!!.bytes())
+                } else {
+                    Resource.Error(
+                        parseBackendError(response.errorBody()?.string())
+                            ?: "No se pudo generar el reporte PDF."
+                    )
+                }
+            } catch (e: Exception) {
+                Resource.Error(e.localizedMessage ?: "Error de conexión")
+            }
+        }
+    }
+
+    suspend fun getMaintenanceUpcomingAll(): Resource<List<MaintenanceDueSummary>> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val response = apiService.getMaintenanceUpcomingAll()
+                if (response.isSuccessful && response.body() != null) {
+                    Resource.Success(response.body()!!.items.map { it.toMaintenanceDueSummary() })
+                } else {
+                    Resource.Error(
+                        parseBackendError(response.errorBody()?.string())
+                            ?: "No se pudieron cargar recordatorios globales."
+                    )
+                }
+            } catch (e: Exception) {
+                Resource.Error(e.localizedMessage ?: "Error de conexión")
+            }
+        }
+    }
+
+    suspend fun getMaintenanceUpcoming(): Resource<List<MaintenanceDueSummary>> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val response = apiService.getMaintenanceUpcoming()
+                if (response.isSuccessful && response.body() != null) {
+                    Resource.Success(response.body()!!.items.map { it.toMaintenanceDueSummary() })
+                } else {
+                    Resource.Error(
+                        parseBackendError(response.errorBody()?.string())
+                            ?: "No se pudieron cargar recordatorios."
+                    )
+                }
+            } catch (e: Exception) {
+                Resource.Error(e.localizedMessage ?: "Error de conexión")
+            }
+        }
+    }
+
+    suspend fun getMaintenanceRecommendations(vehicleId: String): Resource<List<MaintenanceRecommendation>> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val response = apiService.getMaintenanceRecommendations(vehicleId)
+                if (response.isSuccessful && response.body() != null) {
+                    Resource.Success(response.body()!!.recommendations.map { it.toMaintenanceRecommendation() })
+                } else {
+                    Resource.Error(
+                        parseBackendError(response.errorBody()?.string())
+                            ?: "No se pudieron cargar recomendaciones."
+                    )
+                }
+            } catch (e: Exception) {
+                Resource.Error(e.localizedMessage ?: "Error de conexión")
+            }
+        }
+    }
+
     suspend fun updateMaintenance(
         maintenanceId: String,
         payload: Map<String, Any>

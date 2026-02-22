@@ -23,9 +23,12 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.ExitToApp
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.Button
 import androidx.compose.material3.CardDefaults
@@ -77,10 +80,11 @@ fun UserScreen(
     val logoutUiState by logoutViewModel.uiState.collectAsState()
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     var showLogoutDialog by rememberSaveable { mutableStateOf(false) }
+    var showRemindersDialog by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(shouldRefreshOnResume) {
         if (shouldRefreshOnResume) {
-            viewModel.loadVehicles()
+            viewModel.refreshHome()
             onRefreshHandled()
         }
     }
@@ -102,8 +106,25 @@ fun UserScreen(
                 title = { Text(if (selectedTab == 0) "Mis vehículos" else "Productos") },
                 actions = {
                     if (selectedTab == 0) {
-                        IconButton(onClick = viewModel::loadVehicles) {
+                        IconButton(onClick = viewModel::refreshHome) {
                             Icon(Icons.Default.Refresh, contentDescription = "Recargar")
+                        }
+                    }
+                    IconButton(
+                        onClick = {
+                            viewModel.loadUpcomingReminders()
+                            showRemindersDialog = true
+                        }
+                    ) {
+                        BadgedBox(
+                            badge = {
+                                val count = uiState.reminders.size
+                                if (count > 0) {
+                                    Badge { Text(if (count > 99) "99+" else count.toString()) }
+                                }
+                            }
+                        ) {
+                            Icon(Icons.Default.Notifications, contentDescription = "Buzón")
                         }
                     }
                     IconButton(
@@ -177,6 +198,35 @@ fun UserScreen(
         } else {
             ProductDetailsContent(innerPadding = innerPadding)
         }
+    }
+
+    if (showRemindersDialog) {
+        AlertDialog(
+            onDismissRequest = { showRemindersDialog = false },
+            title = { Text("Buzón de mantenimiento") },
+            text = {
+                if (uiState.isLoadingReminders) {
+                    CircularProgressIndicator()
+                } else if (uiState.reminders.isEmpty()) {
+                    Text("No hay vehículos con mantenimiento próximo por ahora.")
+                } else {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        uiState.reminders.take(6).forEach { reminder ->
+                            val dueCount = reminder.items.count { it.status == "due" }
+                            val upcomingCount = reminder.items.count { it.status == "upcoming" }
+                            Text(
+                                text = "${reminder.vehicleLabel}: $dueCount vencido(s), $upcomingCount próximo(s)"
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showRemindersDialog = false }) {
+                    Text("Cerrar")
+                }
+            }
+        )
     }
 
     val pendingDelete = uiState.vehiclePendingDelete

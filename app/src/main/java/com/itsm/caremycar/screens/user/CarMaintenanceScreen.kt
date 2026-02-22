@@ -15,6 +15,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Card
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ElevatedCard
@@ -38,7 +39,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.itsm.caremycar.vehicle.MaintenanceRecommendation
 import com.itsm.caremycar.vehicle.MaintenanceRecord
+import com.itsm.caremycar.vehicle.ServiceOrder
+import java.text.NumberFormat
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -64,145 +69,270 @@ fun CarMaintenanceContent(
     var description by remember { mutableStateOf("") }
     var cost by remember { mutableStateOf("") }
     var mileage by remember { mutableStateOf("") }
+    var orderDate by remember { mutableStateOf("") }
+    var orderNotes by remember { mutableStateOf("") }
 
     LaunchedEffect(vehicleId) {
         viewModel.loadMaintenance(vehicleId)
     }
 
-    Column(
+    LazyColumn(
         modifier = Modifier
             .fillMaxSize()
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        ExposedDropdownMenuBox(
-            expanded = serviceTypeExpanded,
-            onExpandedChange = { serviceTypeExpanded = !serviceTypeExpanded }
-        ) {
-            OutlinedTextField(
-                value = serviceType,
-                onValueChange = {},
-                readOnly = true,
-                label = { Text("Tipo de servicio *") },
-                trailingIcon = {
-                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = serviceTypeExpanded)
-                },
-                modifier = Modifier
-                    .menuAnchor()
-                    .fillMaxWidth(),
-                singleLine = true
-            )
-            DropdownMenu(
-                expanded = serviceTypeExpanded,
-                onDismissRequest = { serviceTypeExpanded = false }
+        if (uiState.recommendations.isNotEmpty()) {
+            item {
+                RecommendationSection(
+                    recommendations = uiState.recommendations,
+                    onUseRecommendation = { rec ->
+                        serviceType = rec.serviceLabel
+                        serviceDate = rec.dueDate
+                        mileage = rec.dueKm.toString()
+                        orderDate = rec.dueDate
+                        viewModel.clearServiceOrderQuote()
+                    }
+                )
+            }
+        }
+
+        item {
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                )
             ) {
-                serviceTypeOptions.forEach { option ->
-                    DropdownMenuItem(
-                        text = { Text(option) },
-                        onClick = {
-                            serviceType = option
-                            serviceTypeExpanded = false
-                        }
+                Column(
+                    modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "Solicitar servicio con agencia",
+                        style = MaterialTheme.typography.titleSmall
                     )
+                    OutlinedTextField(
+                        value = orderDate,
+                        onValueChange = { orderDate = it },
+                        label = { Text("Fecha programada (YYYY-MM-DD) *") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                    OutlinedTextField(
+                        value = orderNotes,
+                        onValueChange = { orderNotes = it },
+                        label = { Text("Notas para la agencia") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Button(
+                        onClick = {
+                            viewModel.loadServiceOrderQuote(
+                                vehicleId = vehicleId,
+                                serviceType = serviceType
+                            )
+                        },
+                        enabled = !uiState.isLoadingOrderQuote,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        if (uiState.isLoadingOrderQuote) {
+                            CircularProgressIndicator(modifier = Modifier.padding(end = 8.dp), strokeWidth = 2.dp)
+                        }
+                        Text("Ver cotización")
+                    }
+                    uiState.orderQuote?.let { quote ->
+                        Text(
+                            text = "Total sugerido: ${toMxn(quote.suggestedTotalMxn)}",
+                            style = MaterialTheme.typography.titleSmall
+                        )
+                        Text(
+                            text = "Productos: ${toMxn(quote.productsTotalMxn)} · Mano de obra: ${toMxn(quote.laborTotalMxn)}",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        quote.products.forEach { product ->
+                            Text(
+                                text = "- ${product.name} x${product.qty} (${toMxn(product.unitPriceMxn)})",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                    }
+                    Button(
+                        onClick = {
+                            viewModel.createServiceOrder(
+                                vehicleId = vehicleId,
+                                serviceType = serviceType,
+                                scheduledDate = orderDate,
+                                notes = orderNotes
+                            )
+                        },
+                        enabled = !uiState.isSubmittingOrder && uiState.orderQuote != null,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        if (uiState.isSubmittingOrder) {
+                            CircularProgressIndicator(modifier = Modifier.padding(end = 8.dp), strokeWidth = 2.dp)
+                        }
+                        Text("Solicitar servicio (con cotización)")
+                    }
                 }
             }
         }
-        OutlinedTextField(
-            value = serviceDate,
-            onValueChange = { serviceDate = it },
-            label = { Text("Fecha de servicio (YYYY-MM-DD) *") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true
-        )
-        OutlinedTextField(
-            value = description,
-            onValueChange = { description = it },
-            label = { Text("Descripción") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true
-        )
-        OutlinedTextField(
-            value = cost,
-            onValueChange = { cost = it },
-            label = { Text("Costo") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
-        )
-        OutlinedTextField(
-            value = mileage,
-            onValueChange = { mileage = it },
-            label = { Text("Kilometraje") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-        )
-        Button(
-            onClick = {
-                viewModel.createMaintenance(
-                    vehicleId = vehicleId,
-                    serviceType = serviceType,
-                    serviceDate = serviceDate,
-                    description = description,
-                    cost = cost,
-                    mileage = mileage
+
+        uiState.orderMessage?.let {
+            item { Text(text = it, color = MaterialTheme.colorScheme.primary) }
+        }
+
+        item {
+            ExposedDropdownMenuBox(
+                expanded = serviceTypeExpanded,
+                onExpandedChange = { serviceTypeExpanded = !serviceTypeExpanded }
+            ) {
+                OutlinedTextField(
+                    value = serviceType,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Tipo de servicio *") },
+                    trailingIcon = {
+                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = serviceTypeExpanded)
+                    },
+                    modifier = Modifier
+                        .menuAnchor()
+                        .fillMaxWidth(),
+                    singleLine = true
                 )
-            },
-            enabled = !uiState.isSaving,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            if (uiState.isSaving) {
-                CircularProgressIndicator(modifier = Modifier.padding(end = 8.dp), strokeWidth = 2.dp)
+                DropdownMenu(
+                    expanded = serviceTypeExpanded,
+                    onDismissRequest = { serviceTypeExpanded = false }
+                ) {
+                    serviceTypeOptions.forEach { option ->
+                        DropdownMenuItem(
+                            text = { Text(option) },
+                            onClick = {
+                                serviceType = option
+                                serviceTypeExpanded = false
+                                viewModel.clearServiceOrderQuote()
+                            }
+                        )
+                    }
+                }
             }
-            Text("Agregar mantenimiento")
+        }
+
+        item {
+            OutlinedTextField(
+                value = serviceDate,
+                onValueChange = { serviceDate = it },
+                label = { Text("Fecha de servicio (YYYY-MM-DD) *") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+        }
+        item {
+            OutlinedTextField(
+                value = description,
+                onValueChange = { description = it },
+                label = { Text("Descripción") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+        }
+        item {
+            OutlinedTextField(
+                value = cost,
+                onValueChange = { cost = it },
+                label = { Text("Costo") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+            )
+        }
+        item {
+            OutlinedTextField(
+                value = mileage,
+                onValueChange = { mileage = it },
+                label = { Text("Kilometraje") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+            )
+        }
+        item {
+            Button(
+                onClick = {
+                    viewModel.createMaintenance(
+                        vehicleId = vehicleId,
+                        serviceType = serviceType,
+                        serviceDate = serviceDate,
+                        description = description,
+                        cost = cost,
+                        mileage = mileage
+                    )
+                },
+                enabled = !uiState.isSaving,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                if (uiState.isSaving) {
+                    CircularProgressIndicator(modifier = Modifier.padding(end = 8.dp), strokeWidth = 2.dp)
+                }
+                Text("Agregar mantenimiento")
+            }
         }
 
         uiState.error?.let {
-            Text(text = it, color = MaterialTheme.colorScheme.error)
+            item { Text(text = it, color = MaterialTheme.colorScheme.error) }
         }
 
         if (uiState.isLoading) {
-            CircularProgressIndicator()
+            item { CircularProgressIndicator() }
         }
 
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            items(uiState.items, key = { it.id }) { item ->
-                ElevatedCard(
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerHighest
-                    )
-                ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        androidx.compose.foundation.layout.Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(
-                                text = item.serviceType ?: "Servicio",
-                                style = MaterialTheme.typography.titleMedium
-                            )
-                            androidx.compose.foundation.layout.Row {
-                                IconButton(onClick = { viewModel.requestEdit(item) }) {
-                                    Icon(Icons.Default.Edit, contentDescription = "Editar")
-                                }
-                                IconButton(onClick = { viewModel.requestDelete(item) }) {
-                                    Icon(
-                                        imageVector = Icons.Default.Delete,
-                                        contentDescription = "Eliminar",
-                                        tint = MaterialTheme.colorScheme.error
-                                    )
-                                }
+        if (uiState.serviceOrders.isNotEmpty()) {
+            item {
+                Text(
+                    text = "Órdenes de servicio",
+                    style = MaterialTheme.typography.titleMedium
+                )
+            }
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    uiState.serviceOrders.take(3).forEach { order ->
+                        ServiceOrderCard(order)
+                    }
+                }
+            }
+        }
+
+        items(uiState.items, key = { it.id }) { item ->
+            ElevatedCard(
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerHighest
+                )
+            ) {
+                Column(modifier = Modifier.padding(12.dp)) {
+                    androidx.compose.foundation.layout.Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = item.serviceType ?: "Servicio",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        androidx.compose.foundation.layout.Row {
+                            IconButton(onClick = { viewModel.requestEdit(item) }) {
+                                Icon(Icons.Default.Edit, contentDescription = "Editar")
+                            }
+                            IconButton(onClick = { viewModel.requestDelete(item) }) {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = "Eliminar",
+                                    tint = MaterialTheme.colorScheme.error
+                                )
                             }
                         }
-                        Text(text = "Fecha: ${item.serviceDate ?: "N/D"}")
-                        Text(text = "Km: ${item.mileage ?: 0}")
-                        Text(text = "Costo: ${item.cost ?: 0.0}")
-                        item.description?.takeIf { it.isNotBlank() }?.let { desc ->
-                            Text(text = desc, style = MaterialTheme.typography.bodySmall)
-                        }
+                    }
+                    Text(text = "Fecha: ${item.serviceDate ?: "N/D"}")
+                    Text(text = "Km: ${item.mileage ?: 0}")
+                    Text(text = "Costo: ${toMxn(item.cost ?: 0.0)}")
+                    item.description?.takeIf { it.isNotBlank() }?.let { desc ->
+                        Text(text = desc, style = MaterialTheme.typography.bodySmall)
                     }
                 }
             }
@@ -250,6 +380,90 @@ fun CarMaintenanceContent(
                 }
             }
         )
+    }
+}
+
+@Composable
+private fun ServiceOrderCard(order: ServiceOrder) {
+    ElevatedCard(
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.secondaryContainer
+        )
+    ) {
+        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(
+                text = "${order.serviceType.ifBlank { "Servicio" }} · ${order.status}",
+                style = MaterialTheme.typography.titleSmall
+            )
+            Text("Fecha programada: ${order.scheduledDate.ifBlank { "N/D" }}")
+            Text("Costo estimado: ${toMxn(order.estimatedCost ?: 0.0)}")
+            order.costBreakdown?.let { breakdown ->
+                Text(
+                    text = "Productos: ${toMxn(breakdown.productsTotalMxn)} · Mano de obra: ${toMxn(breakdown.laborTotalMxn)}",
+                    style = MaterialTheme.typography.bodySmall
+                )
+                breakdown.products.forEach { product ->
+                    Text(
+                        text = "- ${product.name} x${product.qty} (${toMxn(product.unitPriceMxn)})",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+            if (order.completionToken.isNotBlank()) {
+                Text("Código de confirmación: ${order.completionToken}")
+            }
+            if (order.userNotes.isNotBlank()) {
+                Text(order.userNotes, style = MaterialTheme.typography.bodySmall)
+            }
+        }
+    }
+}
+
+private fun toMxn(amount: Double): String {
+    val localeMx = Locale.Builder().setLanguage("es").setRegion("MX").build()
+    return NumberFormat.getCurrencyInstance(localeMx).format(amount)
+}
+
+@Composable
+private fun RecommendationSection(
+    recommendations: List<MaintenanceRecommendation>,
+    onUseRecommendation: (MaintenanceRecommendation) -> Unit
+) {
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.secondaryContainer
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = "Recomendaciones automáticas",
+                style = MaterialTheme.typography.titleSmall
+            )
+            recommendations
+                .filter { it.recommended }
+                .sortedBy { it.daysLeft }
+                .take(3)
+                .forEach { rec ->
+                    val statusText = when (rec.status) {
+                        "due" -> "Vencido"
+                        "upcoming" -> "Próximo"
+                        else -> "OK"
+                    }
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("${rec.serviceLabel} · $statusText")
+                        Text("Fecha objetivo: ${rec.dueDate} · Km objetivo: ${rec.dueKm}")
+                        TextButton(
+                            onClick = { onUseRecommendation(rec) },
+                            modifier = Modifier.padding(0.dp)
+                        ) {
+                            Text("Usar esta recomendación")
+                        }
+                    }
+                }
+        }
     }
 }
 

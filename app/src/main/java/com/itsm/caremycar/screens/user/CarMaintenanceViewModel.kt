@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.itsm.caremycar.repository.VehicleRepository
 import com.itsm.caremycar.util.Resource
 import com.itsm.caremycar.vehicle.CreateMaintenanceRequest
+import com.itsm.caremycar.vehicle.CreateServiceOrderRequest
 import com.itsm.caremycar.vehicle.MaintenanceRecord
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -43,7 +44,129 @@ class CarMaintenanceViewModel @Inject constructor(
 
                 Resource.Loading -> Unit
             }
+
+            when (val recommendationResult = vehicleRepository.getMaintenanceRecommendations(vehicleId)) {
+                is Resource.Success -> {
+                    _uiState.value = _uiState.value.copy(recommendations = recommendationResult.data)
+                }
+
+                is Resource.Error -> {
+                    _uiState.value = _uiState.value.copy(
+                        recommendations = emptyList(),
+                        error = _uiState.value.error ?: recommendationResult.message
+                    )
+                }
+
+                Resource.Loading -> Unit
+            }
+
+            when (val ordersResult = vehicleRepository.listMyServiceOrders()) {
+                is Resource.Success -> {
+                    _uiState.value = _uiState.value.copy(
+                        serviceOrders = ordersResult.data.filter { it.vehicleId == vehicleId }
+                    )
+                }
+
+                is Resource.Error -> {
+                    _uiState.value = _uiState.value.copy(
+                        serviceOrders = emptyList(),
+                        error = _uiState.value.error ?: ordersResult.message
+                    )
+                }
+
+                Resource.Loading -> Unit
+            }
         }
+    }
+
+    fun createServiceOrder(
+        vehicleId: String,
+        serviceType: String,
+        scheduledDate: String,
+        notes: String
+    ) {
+        val st = serviceType.trim()
+        val sd = scheduledDate.trim()
+        if (st.isBlank() || sd.isBlank()) {
+            _uiState.value = _uiState.value.copy(error = "service_type y scheduled_date son requeridos.")
+            return
+        }
+        if (!dateRegex.matches(sd)) {
+            _uiState.value = _uiState.value.copy(error = "scheduled_date debe tener formato YYYY-MM-DD.")
+            return
+        }
+        val request = CreateServiceOrderRequest(
+            vehicleId = vehicleId,
+            serviceType = st,
+            scheduledDate = sd,
+            estimatedCost = null,
+            userNotes = notes.trim().ifBlank { null }
+        )
+
+        viewModelScope.launch {
+            if (_uiState.value.orderQuote == null) {
+                _uiState.value = _uiState.value.copy(error = "Primero consulta la cotización del servicio.")
+                return@launch
+            }
+
+            _uiState.value = _uiState.value.copy(isSubmittingOrder = true, error = null, orderMessage = null)
+            when (val result = vehicleRepository.createServiceOrder(request)) {
+                is Resource.Success -> {
+                    val created = result.data
+                    _uiState.value = _uiState.value.copy(
+                        isSubmittingOrder = false,
+                        serviceOrders = listOf(created) + _uiState.value.serviceOrders,
+                        orderQuote = null,
+                        orderMessage = "Orden creada. Código de confirmación: ${created.completionToken}"
+                    )
+                }
+
+                is Resource.Error -> {
+                    _uiState.value = _uiState.value.copy(
+                        isSubmittingOrder = false,
+                        error = result.message
+                    )
+                }
+
+                Resource.Loading -> Unit
+            }
+        }
+    }
+
+    fun loadServiceOrderQuote(
+        vehicleId: String,
+        serviceType: String
+    ) {
+        val st = serviceType.trim()
+        if (st.isBlank()) {
+            _uiState.value = _uiState.value.copy(error = "Selecciona un tipo de servicio para cotizar.")
+            return
+        }
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoadingOrderQuote = true, error = null, orderMessage = null)
+            when (val result = vehicleRepository.getServiceOrderQuote(vehicleId = vehicleId, serviceType = st)) {
+                is Resource.Success -> {
+                    _uiState.value = _uiState.value.copy(
+                        isLoadingOrderQuote = false,
+                        orderQuote = result.data
+                    )
+                }
+
+                is Resource.Error -> {
+                    _uiState.value = _uiState.value.copy(
+                        isLoadingOrderQuote = false,
+                        orderQuote = null,
+                        error = result.message
+                    )
+                }
+
+                Resource.Loading -> Unit
+            }
+        }
+    }
+
+    fun clearServiceOrderQuote() {
+        _uiState.value = _uiState.value.copy(orderQuote = null)
     }
 
     fun createMaintenance(

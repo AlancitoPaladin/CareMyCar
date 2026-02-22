@@ -22,7 +22,12 @@ class VehicleViewModel @Inject constructor(
     val uiState: StateFlow<VehicleUiState> = _uiState.asStateFlow()
 
     init {
+        refreshHome()
+    }
+
+    fun refreshHome() {
         loadVehicles()
+        loadUpcomingReminders()
     }
 
     fun loadVehicles() {
@@ -41,6 +46,29 @@ class VehicleViewModel @Inject constructor(
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         error = result.message
+                    )
+                }
+
+                Resource.Loading -> Unit
+            }
+        }
+    }
+
+    fun loadUpcomingReminders() {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoadingReminders = true)
+            when (val result = vehicleRepository.getMaintenanceUpcoming()) {
+                is Resource.Success -> {
+                    _uiState.value = _uiState.value.copy(
+                        isLoadingReminders = false,
+                        reminders = result.data
+                    )
+                }
+
+                is Resource.Error -> {
+                    _uiState.value = _uiState.value.copy(
+                        isLoadingReminders = false,
+                        error = _uiState.value.error ?: result.message
                     )
                 }
 
@@ -111,6 +139,7 @@ class VehicleViewModel @Inject constructor(
                         selectedVehicle = selected,
                         removingVehicleId = null
                     )
+                    loadUpcomingReminders()
                 }
 
                 is Resource.Error -> {

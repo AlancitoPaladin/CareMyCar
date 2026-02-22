@@ -1,357 +1,249 @@
 package com.itsm.caremycar.screens.agency
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.DirectionsCar
+import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.itsm.caremycar.ui.theme.CareMyCarTheme
-
-data class VehicleReminder(
-    val id: String,
-    val ownerName: String,
-    val vehicleModel: String,
-    val estimatedDate: String,
-    val isSelected: Boolean = false
-)
-
-data class ReminderGroup(
-    val id: String,
-    val title: String,
-    val count: Int,
-    val reminders: List<VehicleReminder>,
-    val isExpanded: Boolean = false,
-    val isGroupSelected: Boolean = false
-)
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.itsm.caremycar.vehicle.MaintenanceDueSummary
+import com.itsm.caremycar.vehicle.MaintenanceRecommendation
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RemindersScreen(
-    onNavigateBack: () -> Unit = {},
-    onSendReminders: (String) -> Unit = {},
-    onCancel: () -> Unit = {}
+    onNavigateBack: () -> Unit,
+    viewModel: AgencyRemindersViewModel = hiltViewModel()
 ) {
-    var searchText by remember { mutableStateOf("") }
-    var reminderMessage by remember { 
-        mutableStateOf("Recordatorio de Mantenimiento. Tu Vehiculo esta pronto por tener mantenimiento") 
-    }
-    
-    // Mock data
-    var groups by remember {
-        mutableStateOf(
-            listOf(
-                ReminderGroup(
-                    id = "1",
-                    title = "Cambio de aceite",
-                    count = 32,
-                    isExpanded = true,
-                    reminders = listOf(
-                        VehicleReminder("1", "Jair Emiliano Romero", "VW Golf TSI 2.0 2018", "19/02/26"),
-                        VehicleReminder("2", "Juan Perez", "VW Jetta Confortline 2024", "14/03/26")
-                    )
-                ),
-                ReminderGroup(
-                    id = "2",
-                    title = "Servicio General",
-                    count = 15,
-                    reminders = emptyList()
-                )
-            )
-        )
-    }
+    val uiState by viewModel.uiState.collectAsState()
 
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
                 title = {
                     Text(
-                        "Recordatorios",
+                        text = "Recordatorios",
                         fontWeight = FontWeight.Bold,
-                        fontSize = 20.sp,
-                        color = Color.DarkGray
+                        color = Color.White
                     )
                 },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = Color(0xFF4FA3D1)
-                ),
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Volver",
-                            tint = Color.DarkGray
+                            tint = Color.White
                         )
                     }
-                }
+                },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = Color(0xFF4FA3D1)
+                )
             )
         },
-        bottomBar = {
-            // Bottom blue bar as seen in the image
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp)
-                    .background(Color(0xFF4FA3D1))
-            )
-        },
-        containerColor = Color(0xFFE0F0F0) // Matching the background tint in the image
+        containerColor = Color(0xFFF5F5F5)
     ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(horizontal = 24.dp)
-        ) {
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Search Bar
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(44.dp),
-                shape = RoundedCornerShape(22.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFD9E6ED))
-            ) {
-                Row(
+        when {
+            uiState.isLoading -> {
+                Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(horizontal = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                        .padding(paddingValues),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
                 ) {
-                    TextField(
-                        value = searchText,
-                        onValueChange = { searchText = it },
-                        placeholder = { Text("Buscar usuario", fontSize = 14.sp, color = Color.Gray) },
-                        modifier = Modifier.weight(1f),
-                        colors = TextFieldDefaults.colors(
-                            focusedContainerColor = Color.Transparent,
-                            unfocusedContainerColor = Color.Transparent,
-                            focusedIndicatorColor = Color.Transparent,
-                            unfocusedIndicatorColor = Color.Transparent,
-                        ),
-                        singleLine = true
-                    )
-                    Icon(Icons.Default.Search, contentDescription = null, tint = Color.DarkGray)
+                    CircularProgressIndicator()
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Cargando recordatorios...")
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // List of reminders
-            LazyColumn(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                items(groups) { group ->
-                    ReminderGroupItem(
-                        group = group,
-                        onToggleExpand = {
-                            groups = groups.map { 
-                                if (it.id == group.id) it.copy(isExpanded = !it.isExpanded) else it 
-                            }
-                        },
-                        onToggleGroupSelection = { isSelected ->
-                            groups = groups.map { g ->
-                                if (g.id == group.id) {
-                                    g.copy(
-                                        isGroupSelected = isSelected,
-                                        reminders = g.reminders.map { it.copy(isSelected = isSelected) }
-                                    )
-                                } else g
-                            }
-                        }
+            uiState.error != null -> {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues)
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        text = uiState.error.orEmpty(),
+                        color = MaterialTheme.colorScheme.error
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Message Box Section
-            Text(
-                text = "Estimado:",
-                fontSize = 12.sp,
-                color = Color.DarkGray,
-                modifier = Modifier.padding(start = 4.dp, bottom = 2.dp)
-            )
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .border(1.dp, Color.Gray.copy(alpha = 0.5f), RoundedCornerShape(4.dp)),
-                shape = RoundedCornerShape(4.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFD1DEE7))
-            ) {
-                Row(
-                    modifier = Modifier.padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
+            uiState.items.isEmpty() -> {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues)
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
                 ) {
-                    TextField(
-                        value = reminderMessage,
-                        onValueChange = { reminderMessage = it },
-                        modifier = Modifier.weight(1f),
-                        colors = TextFieldDefaults.colors(
-                            focusedContainerColor = Color.Transparent,
-                            unfocusedContainerColor = Color.Transparent,
-                            focusedIndicatorColor = Color.Transparent,
-                            unfocusedIndicatorColor = Color.Transparent,
-                        ),
-                        textStyle = LocalTextStyle.current.copy(fontSize = 14.sp, color = Color.DarkGray)
+                    Icon(
+                        imageVector = Icons.Default.Schedule,
+                        contentDescription = null,
+                        tint = Color.Gray
                     )
-                    IconButton(onClick = { reminderMessage = "" }) {
-                        Icon(
-                            Icons.Default.Cancel,
-                            contentDescription = "Limpiar",
-                            tint = Color.DarkGray,
-                            modifier = Modifier.size(32.dp)
-                        )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("No hay vehículos con mantenimiento próximo o vencido.")
+                }
+            }
+
+            else -> {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(uiState.items) { reminder ->
+                        ReminderVehicleCard(reminder)
                     }
                 }
             }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Action Buttons
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 24.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                Button(
-                    onClick = onCancel,
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(56.dp),
-                    shape = RoundedCornerShape(4.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.Black)
-                ) {
-                    Text("Cancelar", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                }
-
-                Button(
-                    onClick = { onSendReminders(reminderMessage) },
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(56.dp),
-                    shape = RoundedCornerShape(4.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4FA3D1))
-                ) {
-                    Text("Enviar", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                }
-            }
         }
     }
 }
 
 @Composable
-fun ReminderGroupItem(
-    group: ReminderGroup,
-    onToggleExpand: () -> Unit,
-    onToggleGroupSelection: (Boolean) -> Unit
-) {
-    Column {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Checkbox(
-                checked = group.isGroupSelected,
-                onCheckedChange = onToggleGroupSelection,
-                colors = CheckboxDefaults.colors(checkedColor = Color(0xFF5C5CA7))
-            )
-            
-            Column(modifier = Modifier.weight(1f)) {
+private fun ReminderVehicleCard(reminder: MaintenanceDueSummary) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White)
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.DirectionsCar, contentDescription = null, tint = Color(0xFF4FA3D1))
                 Text(
-                    text = group.title,
-                    fontWeight = FontWeight.Medium,
-                    fontSize = 18.sp,
-                    color = Color.DarkGray
-                )
-                Text(
-                    text = "(${group.count} vehiculos)",
-                    fontSize = 15.sp,
-                    color = Color.DarkGray
+                    text = reminder.vehicleLabel,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(start = 8.dp)
                 )
             }
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(
-                    checked = group.isGroupSelected,
-                    onCheckedChange = onToggleGroupSelection,
-                    colors = CheckboxDefaults.colors(checkedColor = Color(0xFF5C5CA7))
-                )
-                IconButton(
-                    onClick = onToggleExpand,
-                    modifier = Modifier
-                        .size(36.dp)
-                        .background(Color(0xFFD9E6ED), RoundedCornerShape(8.dp))
-                ) {
-                    Icon(
-                        imageVector = if (group.isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                        contentDescription = null,
-                        tint = Color.DarkGray
+            if (reminder.userName.isNotBlank() || reminder.userEmail.isNotBlank()) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Email, contentDescription = null, tint = Color.Gray)
+                    val userLabel = buildString {
+                        if (reminder.userName.isNotBlank()) append(reminder.userName)
+                        if (reminder.userEmail.isNotBlank()) {
+                            if (isNotEmpty()) append(" · ")
+                            append(reminder.userEmail)
+                        }
+                    }
+                    Text(
+                        text = userLabel,
+                        color = Color.Gray,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(start = 8.dp)
                     )
                 }
             }
-        }
 
-        AnimatedVisibility(visible = group.isExpanded) {
-            Column(
-                modifier = Modifier.padding(start = 56.dp, top = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                group.reminders.forEach { reminder ->
-                    VehicleReminderDetail(reminder)
-                }
+            Spacer(modifier = Modifier.height(8.dp))
+            reminder.items.forEach { item ->
+                ReminderServiceItem(item)
             }
         }
     }
 }
 
 @Composable
-fun VehicleReminderDetail(reminder: VehicleReminder) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Text(
-            text = reminder.ownerName,
-            fontSize = 12.sp,
-            color = Color.Gray
-        )
-        Text(
-            text = reminder.vehicleModel,
-            fontWeight = FontWeight.Bold,
-            fontSize = 16.sp,
-            color = Color.DarkGray
-        )
-        Text(
-            text = "Fecha aproximada de servicio:",
-            fontSize = 13.sp,
-            color = Color.Gray
-        )
-        Text(
-            text = reminder.estimatedDate,
-            fontSize = 14.sp,
-            color = Color.DarkGray
-        )
+private fun ReminderServiceItem(item: MaintenanceRecommendation) {
+    val chipColor = when (item.status) {
+        "due" -> Color(0xFFD32F2F)
+        "upcoming" -> Color(0xFFF57C00)
+        else -> Color(0xFF388E3C)
     }
-}
+    val chipText = when (item.status) {
+        "due" -> "Vencido"
+        "upcoming" -> "Próximo"
+        else -> "OK"
+    }
 
-@Preview(showBackground = true)
-@Composable
-fun RemindersScreenPreview() {
-    CareMyCarTheme {
-        RemindersScreen()
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Column(modifier = Modifier.padding(10.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Build, contentDescription = null, tint = Color(0xFF4FA3D1))
+                    Text(
+                        text = item.serviceLabel,
+                        modifier = Modifier.padding(start = 8.dp),
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+                AssistChip(
+                    onClick = {},
+                    label = { Text(chipText) },
+                    leadingIcon = {
+                        Icon(Icons.Default.Warning, contentDescription = null)
+                    }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = "Fecha objetivo: ${item.dueDate} · Km objetivo: ${item.dueKm}",
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.DarkGray
+            )
+            Text(
+                text = "Restan ${item.daysLeft} día(s) y ${item.kmLeft} km",
+                style = MaterialTheme.typography.bodySmall,
+                color = chipColor
+            )
+        }
     }
 }
