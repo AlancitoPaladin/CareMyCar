@@ -34,8 +34,9 @@ import com.itsm.caremycar.session.LogoutViewModel
 @Composable
 fun MenuAgency(
     onLogout: () -> Unit = {},
-    onOpenReminders: () -> Unit = {},
-    onOpenServiceOrders: () -> Unit = {},
+    onNavigateToCatalog: () -> Unit = {},
+    onNavigateToOrders: () -> Unit = {},
+    onNavigateToReminders: () -> Unit = {},
     logoutViewModel: LogoutViewModel = hiltViewModel()
 ) {
     val logoutUiState by logoutViewModel.uiState.collectAsState()
@@ -146,12 +147,12 @@ fun MenuAgency(
                     ModernMenuButton(
                         text = "Catálogo",
                         icon = Icons.Default.ShoppingCart,
-                        onClick = {  }
+                        onClick = onNavigateToCatalog
                     )
                     ModernMenuButton(
                         text = "Pedidos",
                         icon = Icons.Default.List,
-                        onClick = { /* Acción */ }
+                        onClick = onNavigateToOrders
                     )
                 }
 
@@ -167,20 +168,8 @@ fun MenuAgency(
                     ModernMenuButton(
                         text = "Recordatorios",
                         icon = Icons.Default.Email,
-                        onClick = onOpenReminders
+                        onClick = onNavigateToReminders
                     )
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    ModernMenuButton(
-                        text = "Gestión de servicios",
-                        icon = Icons.Default.Build,
-                        onClick = onOpenServiceOrders
-                    )
-                    Spacer(modifier = Modifier.weight(1f))
                 }
             }
 

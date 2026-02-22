@@ -14,9 +14,7 @@ import com.itsm.caremycar.screens.user.AddVehicle
 import com.itsm.caremycar.screens.user.CarDetailsScreen
 import com.itsm.caremycar.screens.user.ProductDetailsScreen
 import com.itsm.caremycar.screens.user.UserScreen
-import com.itsm.caremycar.screens.agency.AgencyServiceOrdersScreen
-import com.itsm.caremycar.screens.agency.MenuAgency
-import com.itsm.caremycar.screens.agency.RemindersScreen
+import com.itsm.caremycar.screens.agency.*
 import com.itsm.caremycar.session.Login
 import com.itsm.caremycar.session.LoginViewModel
 import com.itsm.caremycar.session.Register
@@ -102,30 +100,55 @@ fun AppNavigation(navController: NavHostController = rememberNavController()) {
             )
         }
 
+        // --- SECCIÓN AGENCY ---
+
         composable("admin_screen") {
             MenuAgency(
-                onOpenReminders = {
-                    navController.navigate("agency_reminders")
-                },
-                onOpenServiceOrders = {
-                    navController.navigate("agency_service_orders")
-                },
                 onLogout = {
                     navController.navigate("login") {
                         popUpTo(navController.graph.id) { inclusive = true }
                     }
+                },
+                onNavigateToCatalog = { navController.navigate("agency_catalog") },
+                onNavigateToOrders = { navController.navigate("agency_orders") },
+                onNavigateToReminders = { navController.navigate("agency_reminders") }
+            )
+        }
+
+        composable("agency_catalog") {
+            CatalogoRefaccionesScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToAddParts = { navController.navigate("agency_add_parts") }
+            )
+        }
+
+        composable("agency_add_parts") {
+            AddPartsScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onAddPart = {
+                    navController.popBackStack()
+                }
+            )
+        }
+
+        composable("agency_orders") {
+            PedidosScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToAddOrder = { navController.navigate("agency_add_order") }
+            )
+        }
+
+        composable("agency_add_order") {
+            AddOrderScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onAddOrder = {
+                    navController.popBackStack()
                 }
             )
         }
 
         composable("agency_reminders") {
             RemindersScreen(
-                onNavigateBack = { navController.popBackStack() }
-            )
-        }
-
-        composable("agency_service_orders") {
-            AgencyServiceOrdersScreen(
                 onNavigateBack = { navController.popBackStack() }
             )
         }

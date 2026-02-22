@@ -28,7 +28,7 @@ fun AddPartsScreen(
     var selectedCategory by remember { mutableStateOf("") }
     var selectedYear by remember { mutableStateOf("") }
     var selectedModel by remember { mutableStateOf("") }
-    var selectedCompatibility by remember { mutableStateOf("") }
+    var selectedMarca by remember { mutableStateOf("") }
     var price by remember { mutableStateOf("") }
     var quantity by remember { mutableStateOf("") }
 
@@ -100,6 +100,13 @@ fun AddPartsScreen(
                 options = listOf("Motor", "Frenos", "Suspensión", "Eléctrico", "Carrocería"),
                 placeholder = "Seleccione una categoria"
             )
+            CustomDropdownField(
+                label = "Marca",
+                selectedOption = selectedMarca,
+                onOptionSelected = { selectedMarca = it },
+                options = listOf(""),
+                placeholder = "Seleccione marca"
+            )
 
             CustomDropdownField(
                 label = "Año",
@@ -115,14 +122,6 @@ fun AddPartsScreen(
                 onOptionSelected = { selectedModel = it },
                 options = listOf("Golf", "Jetta", "Vento", "Polo", "Tiguan"),
                 placeholder = "Modelo"
-            )
-
-            CustomDropdownField(
-                label = "Compatiblidad",
-                selectedOption = selectedCompatibility,
-                onOptionSelected = { selectedCompatibility = it },
-                options = listOf("Universal", "Específico", "Multimarca"),
-                placeholder = "Seleccione los modelos compatibles"
             )
 
             CustomTextField(
