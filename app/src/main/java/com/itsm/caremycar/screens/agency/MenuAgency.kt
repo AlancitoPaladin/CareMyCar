@@ -176,8 +176,8 @@ fun MenuAgency(
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     ModernMenuButton(
-                        text = "Gestión de citas",
-                        icon = Icons.Default.DateRange,
+                        text = "Gestión de servicios",
+                        icon = Icons.Default.Build,
                         onClick = onOpenServiceOrders
                     )
                     Spacer(modifier = Modifier.weight(1f))
