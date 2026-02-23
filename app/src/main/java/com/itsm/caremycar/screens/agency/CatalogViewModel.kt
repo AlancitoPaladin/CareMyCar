@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import com.itsm.caremycar.vehicle.Part
 
 @HiltViewModel
 class CatalogViewModel @Inject constructor(
@@ -70,6 +71,13 @@ class CatalogViewModel @Inject constructor(
                 }
                 is Resource.Loading -> {}
             }
+        }
+    }
+
+    fun insertOrUpdatePartOptimistically(part: Part) {
+        _uiState.update { state ->
+            val withoutCreated = state.parts.filterNot { it.id == part.id }
+            state.copy(parts = listOf(part) + withoutCreated)
         }
     }
 

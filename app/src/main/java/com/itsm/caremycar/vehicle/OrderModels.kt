@@ -5,6 +5,7 @@ import com.google.gson.annotations.SerializedName
 data class Order(
     val id: String,
     val userId: String,
+    val buyerId: String?,
     val clientName: String,
     val vin: String,
     val make: String,
@@ -24,6 +25,8 @@ data class OrderDto(
     val id: String,
     @SerializedName("user_id")
     val userId: String,
+    @SerializedName("buyer_id")
+    val buyerId: String?,
     @SerializedName("client_name")
     val clientName: String,
     val vin: String,
@@ -91,10 +94,62 @@ data class CreateOrderRequest(
     val status: String = "pending"
 )
 
+data class MarketplacePurchaseRequest(
+    @SerializedName("part_id")
+    val partId: String,
+    val quantity: Int = 1
+)
+
+data class SalesDailyReportResponse(
+    val report: SalesDailyReportDto
+)
+
+data class SalesDailyReportDto(
+    val date: String,
+    @SerializedName("total_orders")
+    val totalOrders: Int,
+    @SerializedName("total_sales")
+    val totalSales: Double,
+    @SerializedName("pending_count")
+    val pendingCount: Int,
+    @SerializedName("confirmed_count")
+    val confirmedCount: Int,
+    @SerializedName("delivered_count")
+    val deliveredCount: Int,
+    @SerializedName("canceled_count")
+    val canceledCount: Int,
+    val items: List<OrderDto>
+)
+
+data class SalesDailyReport(
+    val date: String,
+    val totalOrders: Int,
+    val totalSales: Double,
+    val pendingCount: Int,
+    val confirmedCount: Int,
+    val deliveredCount: Int,
+    val canceledCount: Int,
+    val items: List<Order>
+)
+
+fun SalesDailyReportDto.toSalesDailyReport(): SalesDailyReport {
+    return SalesDailyReport(
+        date = date,
+        totalOrders = totalOrders,
+        totalSales = totalSales,
+        pendingCount = pendingCount,
+        confirmedCount = confirmedCount,
+        deliveredCount = deliveredCount,
+        canceledCount = canceledCount,
+        items = items.map { it.toOrder() }
+    )
+}
+
 fun OrderDto.toOrder(): Order {
     return Order(
         id = id,
         userId = userId,
+        buyerId = buyerId,
         clientName = clientName,
         vin = vin,
         make = make,

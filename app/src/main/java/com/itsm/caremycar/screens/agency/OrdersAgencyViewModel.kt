@@ -23,11 +23,12 @@ class OrdersAgencyViewModel @Inject constructor(
 
     init {
         loadOrders()
+        loadDailyReport()
     }
 
     fun loadOrders() {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
+            _uiState.update { it.copy(isLoading = true, error = null, message = null) }
             
             val result = repository.listOrders(
                 query = _uiState.value.searchQuery.ifBlank { null },
@@ -56,6 +57,31 @@ class OrdersAgencyViewModel @Inject constructor(
         }
     }
 
+    fun loadDailyReport() {
+        viewModelScope.launch {
+            when (val result = repository.getSalesDailyReport()) {
+                is Resource.Success -> {
+                    val report = result.data
+                    _uiState.update {
+                        it.copy(
+                            reportDate = report.date,
+                            reportTotalOrders = report.totalOrders,
+                            reportTotalSales = report.totalSales,
+                            reportPending = report.pendingCount,
+                            reportConfirmed = report.confirmedCount,
+                            reportDelivered = report.deliveredCount,
+                            reportCanceled = report.canceledCount
+                        )
+                    }
+                }
+                is Resource.Error -> {
+                    _uiState.update { it.copy(error = result.message) }
+                }
+                is Resource.Loading -> Unit
+            }
+        }
+    }
+
     fun onSearchQueryChange(newQuery: String) {
         _uiState.update { it.copy(searchQuery = newQuery) }
         loadOrders()
@@ -68,8 +94,45 @@ class OrdersAgencyViewModel @Inject constructor(
 
     fun updateOrderStatus(orderId: String, newStatus: String) {
         viewModelScope.launch {
-            repository.updateOrder(orderId, mapOf("status" to newStatus))
-            loadOrders()
+            _uiState.update { it.copy(isUpdatingStatus = true, error = null, message = null) }
+            when (val result = repository.updateOrder(orderId, mapOf("status" to newStatus))) {
+                is Resource.Success -> {
+                    _uiState.update { it.copy(isUpdatingStatus = false, message = "Estado actualizado.") }
+                    loadOrders()
+                    loadDailyReport()
+                }
+                is Resource.Error -> {
+                    _uiState.update { it.copy(isUpdatingStatus = false, error = result.message) }
+                }
+                is Resource.Loading -> Unit
+            }
         }
+    }
+
+    fun exportDailyReportPdf(date: String? = null) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isExportingPdf = true, error = null, message = null) }
+            when (val result = repository.downloadSalesDailyReportPdf(date)) {
+                is Resource.Success -> {
+                    val reportDate = _uiState.value.reportDate ?: "daily"
+                    _uiState.update {
+                        it.copy(
+                            isExportingPdf = false,
+                            exportedPdfBytes = result.data,
+                            exportedPdfFileName = "ventas_${reportDate}.pdf",
+                            message = "PDF generado correctamente."
+                        )
+                    }
+                }
+                is Resource.Error -> {
+                    _uiState.update { it.copy(isExportingPdf = false, error = result.message) }
+                }
+                is Resource.Loading -> Unit
+            }
+        }
+    }
+
+    fun consumeExportedPdf() {
+        _uiState.update { it.copy(exportedPdfBytes = null, exportedPdfFileName = null) }
     }
 }

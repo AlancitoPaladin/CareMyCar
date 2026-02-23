@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -36,7 +38,9 @@ fun MenuAgency(
     onLogout: () -> Unit = {},
     onNavigateToCatalog: () -> Unit = {},
     onNavigateToOrders: () -> Unit = {},
+    onNavigateToSales: () -> Unit = {},
     onNavigateToReminders: () -> Unit = {},
+    onNavigateToServiceManagement: () -> Unit = {},
     logoutViewModel: LogoutViewModel = hiltViewModel()
 ) {
     val logoutUiState by logoutViewModel.uiState.collectAsState()
@@ -59,26 +63,20 @@ fun MenuAgency(
                         fontSize = 22.sp
                     )
                 },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Color(0xFF4FA3D1),
-                    titleContentColor = Color.White
+                    scrolledContainerColor = Color.Unspecified,
+                    navigationIconContentColor = Color.Unspecified,
+                    titleContentColor = Color.White,
+                    actionIconContentColor = Color.Unspecified
                 ),
-                navigationIcon = {
-                    IconButton(onClick = { /* Acción de retroceso */ }) {
-                        Icon(
-                            Icons.Default.ArrowBack,
-                            contentDescription = "Volver",
-                            tint = Color.White
-                        )
-                    }
-                },
                 actions = {
                     IconButton(
                         onClick = { showLogoutDialog = true },
                         enabled = !logoutUiState.isLoggingOut
                     ) {
                         Icon(
-                            imageVector = Icons.Default.ExitToApp,
+                            imageVector = Icons.AutoMirrored.Filled.ExitToApp,
                             contentDescription = "Cerrar sesión",
                             tint = Color.White
                         )
@@ -151,7 +149,7 @@ fun MenuAgency(
                     )
                     ModernMenuButton(
                         text = "Pedidos",
-                        icon = Icons.Default.List,
+                        icon = Icons.AutoMirrored.Filled.List,
                         onClick = onNavigateToOrders
                     )
                 }
@@ -161,15 +159,27 @@ fun MenuAgency(
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     ModernMenuButton(
-                        text = "Consultar",
-                        icon = Icons.Default.Search,
-                        onClick = { /* Acción */ }
+                        text = "Gestión de servicos",
+                        icon = Icons.Default.Build,
+                        onClick = onNavigateToServiceManagement
                     )
+                    ModernMenuButton(
+                        text = "Ventas",
+                        icon = Icons.Default.MonetizationOn,
+                        onClick = onNavigateToSales
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
                     ModernMenuButton(
                         text = "Recordatorios",
                         icon = Icons.Default.Email,
                         onClick = onNavigateToReminders
                     )
+                    Spacer(modifier = Modifier.weight(1f))
                 }
             }
 

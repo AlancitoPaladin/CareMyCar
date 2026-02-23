@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
@@ -15,6 +16,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Card
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ElevatedCard
@@ -25,8 +28,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -40,6 +45,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.itsm.caremycar.vehicle.MaintenanceRecommendation
 import com.itsm.caremycar.vehicle.MaintenanceRecord
 import com.itsm.caremycar.vehicle.ServiceOrder
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -64,6 +72,7 @@ fun CarMaintenanceContent(
     var serviceType by remember { mutableStateOf("") }
     var serviceTypeExpanded by remember { mutableStateOf(false) }
     var orderDate by remember { mutableStateOf("") }
+    var showDatePicker by remember { mutableStateOf(false) }
     var orderNotes by remember { mutableStateOf("") }
 
     LaunchedEffect(vehicleId) {
@@ -138,11 +147,48 @@ fun CarMaintenanceContent(
                     }
                     OutlinedTextField(
                         value = orderDate,
-                        onValueChange = { orderDate = it },
+                        onValueChange = {},
+                        readOnly = true,
                         label = { Text("Fecha programada (YYYY-MM-DD) *") },
+                        trailingIcon = {
+                            IconButton(onClick = { showDatePicker = true }) {
+                                Icon(Icons.Default.DateRange, contentDescription = "Seleccionar fecha")
+                            }
+                        },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true
                     )
+                    if (showDatePicker) {
+                        val pickerState = rememberDatePickerState(
+                            initialSelectedDateMillis = orderDateToMillis(orderDate) ?: todayUtcMillis(),
+                            selectableDates = object : SelectableDates {
+                                override fun isSelectableDate(utcTimeMillis: Long): Boolean {
+                                    return utcTimeMillis >= todayUtcMillis()
+                                }
+                            }
+                        )
+                        DatePickerDialog(
+                            onDismissRequest = { showDatePicker = false },
+                            confirmButton = {
+                                TextButton(
+                                    onClick = {
+                                        pickerState.selectedDateMillis?.let { millis ->
+                                            orderDate = millisToDateString(millis)
+                                            viewModel.clearServiceOrderQuote()
+                                        }
+                                        showDatePicker = false
+                                    }
+                                ) {
+                                    Text("Aceptar")
+                                }
+                            },
+                            dismissButton = {
+                                TextButton(onClick = { showDatePicker = false }) { Text("Cancelar") }
+                            }
+                        ) {
+                            DatePicker(state = pickerState)
+                        }
+                    }
                     OutlinedTextField(
                         value = orderNotes,
                         onValueChange = { orderNotes = it },
@@ -353,6 +399,31 @@ private fun toMxn(amount: Double): String {
     return NumberFormat.getCurrencyInstance(localeMx).format(amount)
 }
 
+private fun millisToDateString(millis: Long): String {
+    return Instant.ofEpochMilli(millis)
+        .atZone(ZoneId.systemDefault())
+        .toLocalDate()
+        .toString()
+}
+
+private fun orderDateToMillis(orderDate: String): Long? {
+    return try {
+        LocalDate.parse(orderDate)
+            .atStartOfDay(ZoneId.systemDefault())
+            .toInstant()
+            .toEpochMilli()
+    } catch (_: Exception) {
+        null
+    }
+}
+
+private fun todayUtcMillis(): Long {
+    return LocalDate.now()
+        .atStartOfDay(ZoneId.systemDefault())
+        .toInstant()
+        .toEpochMilli()
+}
+
 @Composable
 private fun RecommendationSection(
     recommendations: List<MaintenanceRecommendation>,
@@ -408,6 +479,7 @@ private fun EditMaintenanceDialog(
     var serviceType by remember(item.id) { mutableStateOf(item.serviceType.orEmpty()) }
     var serviceTypeExpanded by remember(item.id) { mutableStateOf(false) }
     var serviceDate by remember(item.id) { mutableStateOf(item.serviceDate.orEmpty()) }
+    var showEditDatePicker by remember(item.id) { mutableStateOf(false) }
     var description by remember(item.id) { mutableStateOf(item.description.orEmpty()) }
     var cost by remember(item.id) { mutableStateOf(item.cost?.toString().orEmpty()) }
     var mileage by remember(item.id) { mutableStateOf(item.mileage?.toString().orEmpty()) }
@@ -448,7 +520,45 @@ private fun EditMaintenanceDialog(
                         }
                     }
                 }
-                OutlinedTextField(value = serviceDate, onValueChange = { serviceDate = it }, label = { Text("Fecha") })
+                OutlinedTextField(
+                    value = serviceDate,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Fecha") },
+                    trailingIcon = {
+                        IconButton(onClick = { showEditDatePicker = true }) {
+                            Icon(Icons.Default.DateRange, contentDescription = "Seleccionar fecha")
+                        }
+                    }
+                )
+                if (showEditDatePicker) {
+                    val pickerState = rememberDatePickerState(
+                        initialSelectedDateMillis = orderDateToMillis(serviceDate) ?: todayUtcMillis(),
+                        selectableDates = object : SelectableDates {
+                            override fun isSelectableDate(utcTimeMillis: Long): Boolean {
+                                return utcTimeMillis >= todayUtcMillis()
+                            }
+                        }
+                    )
+                    DatePickerDialog(
+                        onDismissRequest = { showEditDatePicker = false },
+                        confirmButton = {
+                            TextButton(
+                                onClick = {
+                                    pickerState.selectedDateMillis?.let {
+                                        serviceDate = millisToDateString(it)
+                                    }
+                                    showEditDatePicker = false
+                                }
+                            ) { Text("Aceptar") }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showEditDatePicker = false }) { Text("Cancelar") }
+                        }
+                    ) {
+                        DatePicker(state = pickerState)
+                    }
+                }
                 OutlinedTextField(value = description, onValueChange = { description = it }, label = { Text("Descripción") })
                 OutlinedTextField(value = cost, onValueChange = { cost = it }, label = { Text("Costo") })
                 OutlinedTextField(value = mileage, onValueChange = { mileage = it }, label = { Text("Kilometraje") })

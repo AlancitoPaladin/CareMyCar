@@ -1,5 +1,10 @@
 package com.itsm.caremycar.screens.agency
 
+import android.content.ContentValues
+import android.os.Build
+import android.os.Environment
+import android.provider.MediaStore
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -17,6 +22,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -24,6 +30,10 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.itsm.caremycar.vehicle.Order
+import java.io.File
+import java.io.FileOutputStream
+import java.text.NumberFormat
+import java.util.Locale
 
 enum class EstadoPedido(val label: String, val color: Color, val icon: ImageVector) {
     PENDIENTE("Pendiente", Color(0xFFFFA000), Icons.Default.Info),
@@ -47,18 +57,30 @@ enum class EstadoPedido(val label: String, val color: Color, val icon: ImageVect
 @Composable
 fun PedidosScreen(
     onNavigateBack: () -> Unit = {},
-    onNavigateToAddOrder: () -> Unit = {},
     viewModel: OrdersAgencyViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
     var selectedOrder by remember { mutableStateOf<Order?>(null) }
+
+    LaunchedEffect(uiState.exportedPdfBytes, uiState.exportedPdfFileName) {
+        val bytes = uiState.exportedPdfBytes ?: return@LaunchedEffect
+        val fileName = uiState.exportedPdfFileName ?: "ventas.pdf"
+        val savedAt = savePdfToDownloads(context, fileName, bytes)
+        if (savedAt != null) {
+            Toast.makeText(context, "PDF exportado en: $savedAt", Toast.LENGTH_LONG).show()
+        } else {
+            Toast.makeText(context, "No se pudo guardar el PDF", Toast.LENGTH_LONG).show()
+        }
+        viewModel.consumeExportedPdf()
+    }
 
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
                 title = {
                     Text(
-                        "Pedidos",
+                        "Ventas",
                         fontWeight = FontWeight.Bold,
                         fontSize = 22.sp,
                         color = Color.White
@@ -89,20 +111,7 @@ fun PedidosScreen(
             )
         },
         containerColor = Color(0xFFF5F5F5),
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = onNavigateToAddOrder,
-                containerColor = Color(0xFF4FA3D1),
-                contentColor = Color.White,
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Icon(
-                    Icons.Default.Add,
-                    contentDescription = "Añadir pedido",
-                    modifier = Modifier.size(28.dp)
-                )
-            }
-        }
+        floatingActionButton = {}
     ) { paddingValues ->
         Column(
             modifier = Modifier
@@ -116,6 +125,46 @@ fun PedidosScreen(
             )
 
             Spacer(modifier = Modifier.height(16.dp))
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = Color.White)
+            ) {
+                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("Reporte diario de ventas", fontWeight = FontWeight.Bold)
+                    Text("Fecha: ${uiState.reportDate ?: "-"}")
+                    Text("Ventas: ${toMxn(uiState.reportTotalSales)} · Órdenes: ${uiState.reportTotalOrders}")
+                    Text(
+                        "Pendientes ${uiState.reportPending} · Confirmadas ${uiState.reportConfirmed} · Entregadas ${uiState.reportDelivered} · Canceladas ${uiState.reportCanceled}",
+                        color = Color.Gray,
+                        fontSize = 12.sp
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Button(
+                        onClick = { viewModel.exportDailyReportPdf(uiState.reportDate) },
+                        enabled = !uiState.isExportingPdf
+                    ) {
+                        if (uiState.isExportingPdf) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                strokeWidth = 2.dp,
+                                color = Color.White
+                            )
+                        } else {
+                            Text("Exportar reporte a PDF")
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            uiState.message?.let {
+                Text(text = it, color = Color(0xFF2E7D32), fontSize = 13.sp)
+            }
+            uiState.error?.let {
+                Text(text = it, color = Color(0xFFC62828), fontSize = 13.sp)
+            }
 
             if (uiState.isLoading) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -141,6 +190,7 @@ fun PedidosScreen(
     if (selectedOrder != null) {
         OrderDetailsDialog(
             order = selectedOrder!!,
+            isUpdating = uiState.isUpdatingStatus,
             onDismiss = { selectedOrder = null },
             onStatusChange = { newStatus ->
                 viewModel.updateOrderStatus(selectedOrder!!.id, newStatus)
@@ -226,7 +276,7 @@ fun PedidoCard(
                 Text(order.partName ?: "Sin nombre", color = Color.Gray, fontSize = 14.sp)
             }
             Column(horizontalAlignment = Alignment.End) {
-                Text("$${order.totalPrice}", fontWeight = FontWeight.Bold, color = Color(0xFF4FA3D1))
+                Text(toMxn(order.totalPrice), fontWeight = FontWeight.Bold, color = Color(0xFF4FA3D1))
                 Text(status.label, color = status.color, fontSize = 12.sp)
             }
         }
@@ -236,9 +286,12 @@ fun PedidoCard(
 @Composable
 fun OrderDetailsDialog(
     order: Order,
+    isUpdating: Boolean,
     onDismiss: () -> Unit,
     onStatusChange: (String) -> Unit
 ) {
+    val allowedTransitions = remember(order.status) { allowedStatusTransitions(order.status) }
+
     Dialog(onDismissRequest = onDismiss) {
         Card(
             shape = RoundedCornerShape(16.dp),
@@ -250,24 +303,77 @@ fun OrderDetailsDialog(
                 Text("Pieza: ${order.partName}")
                 Text("Vehículo: ${order.make} ${order.model} (${order.year})")
                 Text("VIN: ${order.vin}")
-                Text("Total: $${order.totalPrice}")
+                Text("Total: ${toMxn(order.totalPrice)}")
                 HorizontalDivider()
                 Text("Cambiar Estado:", fontWeight = FontWeight.Bold)
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                    statusButton(EstadoPedido.PENDIENTE, "pending", onStatusChange)
-                    statusButton(EstadoPedido.CONFIRMADO, "confirmed", onStatusChange)
-                    statusButton(EstadoPedido.ENTREGADO, "delivered", onStatusChange)
-                    statusButton(EstadoPedido.CANCELADO, "canceled", onStatusChange)
+                if (allowedTransitions.isEmpty()) {
+                    Text(
+                        text = "Este pedido ya no permite cambios de estado.",
+                        color = Color.Gray,
+                        fontSize = 13.sp
+                    )
+                } else {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                        allowedTransitions.forEach { statusKey ->
+                            statusButton(
+                                estado = EstadoPedido.fromString(statusKey),
+                                statusKey = statusKey,
+                                enabled = !isUpdating,
+                                onStatusChange = onStatusChange
+                            )
+                        }
+                    }
                 }
-                Button(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) { Text("Cerrar") }
+                Button(onClick = onDismiss, modifier = Modifier.fillMaxWidth(), enabled = !isUpdating) { Text("Cerrar") }
             }
         }
     }
 }
 
 @Composable
-fun statusButton(estado: EstadoPedido, statusKey: String, onStatusChange: (String) -> Unit) {
-    IconButton(onClick = { onStatusChange(statusKey) }) {
+fun statusButton(estado: EstadoPedido, statusKey: String, enabled: Boolean, onStatusChange: (String) -> Unit) {
+    IconButton(onClick = { onStatusChange(statusKey) }, enabled = enabled) {
         Icon(estado.icon, contentDescription = estado.label, tint = estado.color)
+    }
+}
+
+private fun allowedStatusTransitions(currentStatus: String): List<String> {
+    return when (currentStatus.lowercase()) {
+        "pending" -> listOf("confirmed", "canceled")
+        "confirmed" -> listOf("delivered", "canceled")
+        else -> emptyList()
+    }
+}
+
+private fun toMxn(amount: Double): String {
+    val localeMx = Locale.Builder().setLanguage("es").setRegion("MX").build()
+    return NumberFormat.getCurrencyInstance(localeMx).format(amount)
+}
+
+private fun savePdfToDownloads(context: android.content.Context, fileName: String, bytes: ByteArray): String? {
+    return try {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val values = ContentValues().apply {
+                put(MediaStore.Downloads.DISPLAY_NAME, fileName)
+                put(MediaStore.Downloads.MIME_TYPE, "application/pdf")
+                put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+                put(MediaStore.Downloads.IS_PENDING, 1)
+            }
+            val resolver = context.contentResolver
+            val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values) ?: return null
+            resolver.openOutputStream(uri)?.use { it.write(bytes) } ?: return null
+            values.clear()
+            values.put(MediaStore.Downloads.IS_PENDING, 0)
+            resolver.update(uri, values, null, null)
+            uri.toString()
+        } else {
+            val dir = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: return null
+            if (!dir.exists()) dir.mkdirs()
+            val file = File(dir, fileName)
+            FileOutputStream(file).use { it.write(bytes) }
+            file.absolutePath
+        }
+    } catch (_: Exception) {
+        null
     }
 }

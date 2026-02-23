@@ -95,7 +95,13 @@ class AddPartsViewModel @Inject constructor(
 
             when (val result = repository.createPart(request)) {
                 is Resource.Success -> {
-                    _uiState.update { it.copy(isLoading = false, isSuccess = true) }
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            isSuccess = true,
+                            createdPart = result.data
+                        )
+                    }
                 }
                 is Resource.Error -> {
                     _uiState.update { it.copy(isLoading = false, error = result.message) }
@@ -106,6 +112,6 @@ class AddPartsViewModel @Inject constructor(
     }
 
     fun consumeSuccess() {
-        _uiState.update { it.copy(isSuccess = false) }
+        _uiState.update { it.copy(isSuccess = false, createdPart = null) }
     }
 }

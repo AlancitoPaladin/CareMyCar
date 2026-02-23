@@ -200,6 +200,74 @@ class VehicleRepository @Inject constructor(
         }
     }
 
+    suspend fun listMarketplaceProducts(query: String?, category: String?, page: Int, limit: Int): Resource<Pair<List<Part>, Int>> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val response = apiService.listMarketplaceProducts(query, category, page, limit)
+                if (response.isSuccessful && response.body() != null) {
+                    val body = response.body()!!
+                    Resource.Success(body.items.map { it.toPart() } to body.total)
+                } else {
+                    Resource.Error(parseBackendError(response.errorBody()?.string()) ?: "No se pudieron cargar los productos.")
+                }
+            } catch (e: Exception) { Resource.Error(e.localizedMessage ?: "Error de conexión") }
+        }
+    }
+
+    suspend fun purchaseMarketplaceProduct(partId: String, quantity: Int): Resource<Order> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val response = apiService.purchaseMarketplaceProduct(
+                    MarketplacePurchaseRequest(partId = partId, quantity = quantity)
+                )
+                if (response.isSuccessful && response.body() != null) {
+                    Resource.Success(response.body()!!.order.toOrder())
+                } else {
+                    Resource.Error(parseBackendError(response.errorBody()?.string()) ?: "No se pudo completar la compra.")
+                }
+            } catch (e: Exception) { Resource.Error(e.localizedMessage ?: "Error de conexión") }
+        }
+    }
+
+    suspend fun listMyPurchases(status: String?, page: Int, limit: Int): Resource<OrderListResponse> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val response = apiService.listMyPurchases(status, page, limit)
+                if (response.isSuccessful && response.body() != null) {
+                    Resource.Success(response.body()!!)
+                } else {
+                    Resource.Error(parseBackendError(response.errorBody()?.string()) ?: "No se pudieron cargar tus compras.")
+                }
+            } catch (e: Exception) { Resource.Error(e.localizedMessage ?: "Error de conexión") }
+        }
+    }
+
+    suspend fun getSalesDailyReport(date: String? = null): Resource<SalesDailyReport> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val response = apiService.getSalesDailyReport(date)
+                if (response.isSuccessful && response.body() != null) {
+                    Resource.Success(response.body()!!.report.toSalesDailyReport())
+                } else {
+                    Resource.Error(parseBackendError(response.errorBody()?.string()) ?: "No se pudo cargar el reporte diario.")
+                }
+            } catch (e: Exception) { Resource.Error(e.localizedMessage ?: "Error de conexión") }
+        }
+    }
+
+    suspend fun downloadSalesDailyReportPdf(date: String? = null): Resource<ByteArray> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val response = apiService.downloadSalesDailyReportPdf(date)
+                if (response.isSuccessful && response.body() != null) {
+                    Resource.Success(response.body()!!.bytes())
+                } else {
+                    Resource.Error(parseBackendError(response.errorBody()?.string()) ?: "No se pudo generar el PDF de ventas.")
+                }
+            } catch (e: Exception) { Resource.Error(e.localizedMessage ?: "Error de conexión") }
+        }
+    }
+
     suspend fun createOrder(request: CreateOrderRequest): Resource<Order> {
         return withContext(Dispatchers.IO) {
             try {

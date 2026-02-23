@@ -20,11 +20,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.itsm.caremycar.vehicle.Part
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddPartsScreen(
     onNavigateBack: () -> Unit = {},
+    onPartCreated: (Part) -> Unit = {},
     viewModel: AddPartsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -41,8 +43,8 @@ fun AddPartsScreen(
     LaunchedEffect(uiState.isSuccess) {
         if (uiState.isSuccess) {
             Toast.makeText(context, "Refacción añadida con éxito", Toast.LENGTH_SHORT).show()
+            uiState.createdPart?.let(onPartCreated)
             viewModel.consumeSuccess()
-            onNavigateBack()
         }
     }
 

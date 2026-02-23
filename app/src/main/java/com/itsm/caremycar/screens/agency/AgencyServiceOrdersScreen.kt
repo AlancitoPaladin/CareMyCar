@@ -17,6 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
@@ -25,6 +26,8 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -32,9 +35,11 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -49,6 +54,9 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.itsm.caremycar.vehicle.ServiceOrder
 import androidx.compose.ui.text.input.KeyboardType
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -61,6 +69,9 @@ fun AgencyServiceOrdersScreen(
     val uiState by viewModel.uiState.collectAsState()
     var reportFrom by remember { mutableStateOf("") }
     var reportTo by remember { mutableStateOf("") }
+    var showFromPicker by remember { mutableStateOf(false) }
+    var showToPicker by remember { mutableStateOf(false) }
+    var reportRangeError by remember { mutableStateOf<String?>(null) }
     var completionDialogOrder by remember { mutableStateOf<ServiceOrder?>(null) }
     var completionToken by remember { mutableStateOf("") }
     var completionCost by remember { mutableStateOf("") }
@@ -119,20 +130,42 @@ fun AgencyServiceOrdersScreen(
                     Text("Reporte PDF de servicios finalizados", style = MaterialTheme.typography.titleSmall)
                     OutlinedTextField(
                         value = reportFrom,
-                        onValueChange = { reportFrom = it },
+                        onValueChange = {},
+                        readOnly = true,
                         label = { Text("Desde (YYYY-MM-DD)") },
+                        trailingIcon = {
+                            IconButton(onClick = { showFromPicker = true }) {
+                                Icon(Icons.Default.DateRange, contentDescription = "Seleccionar fecha desde")
+                            }
+                        },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true
                     )
                     OutlinedTextField(
                         value = reportTo,
-                        onValueChange = { reportTo = it },
+                        onValueChange = {},
+                        readOnly = true,
                         label = { Text("Hasta (YYYY-MM-DD)") },
+                        trailingIcon = {
+                            IconButton(onClick = { showToPicker = true }) {
+                                Icon(Icons.Default.DateRange, contentDescription = "Seleccionar fecha hasta")
+                            }
+                        },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true
                     )
+                    reportRangeError?.let { Text(text = it, color = MaterialTheme.colorScheme.error) }
                     Button(
                         onClick = {
+                            reportRangeError = null
+                            if (reportFrom.isNotBlank() && reportTo.isNotBlank()) {
+                                val fromDate = parseDateOrNull(reportFrom)
+                                val toDate = parseDateOrNull(reportTo)
+                                if (fromDate != null && toDate != null && fromDate.isAfter(toDate)) {
+                                    reportRangeError = "La fecha 'Desde' no puede ser mayor que 'Hasta'."
+                                    return@Button
+                                }
+                            }
                             viewModel.generateReport(
                                 from = reportFrom.ifBlank { null },
                                 to = reportTo.ifBlank { null }
@@ -143,6 +176,66 @@ fun AgencyServiceOrdersScreen(
                     ) {
                         Text("Generar PDF")
                     }
+                }
+            }
+
+            if (showFromPicker) {
+                val fromPickerState = rememberDatePickerState(
+                    initialSelectedDateMillis = dateStringToMillis(reportFrom) ?: todayMillis(),
+                    selectableDates = object : SelectableDates {
+                        override fun isSelectableDate(utcTimeMillis: Long): Boolean {
+                            return utcTimeMillis >= todayMillis()
+                        }
+                    }
+                )
+                DatePickerDialog(
+                    onDismissRequest = { showFromPicker = false },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                fromPickerState.selectedDateMillis?.let {
+                                    reportFrom = millisToDateString(it)
+                                }
+                                reportRangeError = null
+                                showFromPicker = false
+                            }
+                        ) { Text("Aceptar") }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showFromPicker = false }) { Text("Cancelar") }
+                    }
+                ) {
+                    DatePicker(state = fromPickerState)
+                }
+            }
+
+            if (showToPicker) {
+                val toPickerState = rememberDatePickerState(
+                    initialSelectedDateMillis = dateStringToMillis(reportTo) ?: todayMillis(),
+                    selectableDates = object : SelectableDates {
+                        override fun isSelectableDate(utcTimeMillis: Long): Boolean {
+                            return utcTimeMillis >= todayMillis()
+                        }
+                    }
+                )
+                DatePickerDialog(
+                    onDismissRequest = { showToPicker = false },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                toPickerState.selectedDateMillis?.let {
+                                    reportTo = millisToDateString(it)
+                                }
+                                reportRangeError = null
+                                showToPicker = false
+                            }
+                        ) { Text("Aceptar") }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showToPicker = false }) { Text("Cancelar") }
+                    }
+                ) {
+                    DatePicker(state = toPickerState)
                 }
             }
 
@@ -314,4 +407,37 @@ private fun StatusChip(
 private fun toMxn(amount: Double): String {
     val localeMx = Locale.Builder().setLanguage("es").setRegion("MX").build()
     return NumberFormat.getCurrencyInstance(localeMx).format(amount)
+}
+
+private fun millisToDateString(millis: Long): String {
+    return Instant.ofEpochMilli(millis)
+        .atZone(ZoneId.systemDefault())
+        .toLocalDate()
+        .toString()
+}
+
+private fun dateStringToMillis(date: String): Long? {
+    return try {
+        LocalDate.parse(date)
+            .atStartOfDay(ZoneId.systemDefault())
+            .toInstant()
+            .toEpochMilli()
+    } catch (_: Exception) {
+        null
+    }
+}
+
+private fun parseDateOrNull(date: String): LocalDate? {
+    return try {
+        LocalDate.parse(date)
+    } catch (_: Exception) {
+        null
+    }
+}
+
+private fun todayMillis(): Long {
+    return LocalDate.now()
+        .atStartOfDay(ZoneId.systemDefault())
+        .toInstant()
+        .toEpochMilli()
 }

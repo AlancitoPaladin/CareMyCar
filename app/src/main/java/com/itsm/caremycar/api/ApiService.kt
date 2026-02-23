@@ -62,6 +62,37 @@ interface ApiService {
         @Query("limit") limit: Int
     ): Response<OrderListResponse>
 
+    @GET("api/orders/marketplace/products")
+    suspend fun listMarketplaceProducts(
+        @Query("q") query: String?,
+        @Query("category") category: String?,
+        @Query("page") page: Int,
+        @Query("limit") limit: Int
+    ): Response<PartListResponse>
+
+    @POST("api/orders/marketplace/purchase")
+    suspend fun purchaseMarketplaceProduct(
+        @Body request: MarketplacePurchaseRequest
+    ): Response<OrderDetailResponse>
+
+    @GET("api/orders/purchases/my")
+    suspend fun listMyPurchases(
+        @Query("status") status: String?,
+        @Query("page") page: Int,
+        @Query("limit") limit: Int
+    ): Response<OrderListResponse>
+
+    @GET("api/orders/sales/daily-report")
+    suspend fun getSalesDailyReport(
+        @Query("date") date: String? = null
+    ): Response<SalesDailyReportResponse>
+
+    @Streaming
+    @GET("api/orders/sales/daily-report/pdf")
+    suspend fun downloadSalesDailyReportPdf(
+        @Query("date") date: String? = null
+    ): Response<ResponseBody>
+
     @POST("api/orders")
     suspend fun createOrder(@Body request: CreateOrderRequest): Response<OrderDetailResponse>
 

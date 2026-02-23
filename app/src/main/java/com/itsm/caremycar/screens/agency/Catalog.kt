@@ -28,10 +28,28 @@ fun CatalogoRefaccionesScreen(
     onNavigateBack: () -> Unit = {},
     onNavigateToAddParts: () -> Unit = {},
     onNavigateToEditPart: (String) -> Unit = {},
+    shouldRefreshOnResume: Boolean = false,
+    onRefreshHandled: () -> Unit = {},
+    optimisticCreatedPart: Part? = null,
+    onOptimisticPartHandled: () -> Unit = {},
     viewModel: CatalogViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var showDeleteDialog by remember { mutableStateOf<Part?>(null) }
+
+    LaunchedEffect(shouldRefreshOnResume) {
+        if (shouldRefreshOnResume) {
+            viewModel.loadParts()
+            onRefreshHandled()
+        }
+    }
+
+    LaunchedEffect(optimisticCreatedPart?.id) {
+        optimisticCreatedPart?.let {
+            viewModel.insertOrUpdatePartOptimistically(it)
+            onOptimisticPartHandled()
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -44,8 +62,12 @@ fun CatalogoRefaccionesScreen(
                         color = Color.White
                     )
                 },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = Color(0xFF4FA3D1)
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color(0xFF4FA3D1),
+                    scrolledContainerColor = Color.Unspecified,
+                    navigationIconContentColor = Color.Unspecified,
+                    titleContentColor = Color.Unspecified,
+                    actionIconContentColor = Color.Unspecified
                 ),
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {

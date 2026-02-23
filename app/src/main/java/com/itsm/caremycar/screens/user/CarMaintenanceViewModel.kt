@@ -13,6 +13,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.time.LocalDate
+import java.time.format.DateTimeParseException
 
 @HiltViewModel
 class CarMaintenanceViewModel @Inject constructor(
@@ -93,6 +95,16 @@ class CarMaintenanceViewModel @Inject constructor(
         }
         if (!dateRegex.matches(sd)) {
             _uiState.value = _uiState.value.copy(error = "scheduled_date debe tener formato YYYY-MM-DD.")
+            return
+        }
+        try {
+            val selectedDate = LocalDate.parse(sd)
+            if (selectedDate.isBefore(LocalDate.now())) {
+                _uiState.value = _uiState.value.copy(error = "No puedes programar una fecha anterior a hoy.")
+                return
+            }
+        } catch (_: DateTimeParseException) {
+            _uiState.value = _uiState.value.copy(error = "scheduled_date no es una fecha válida.")
             return
         }
         val request = CreateServiceOrderRequest(
