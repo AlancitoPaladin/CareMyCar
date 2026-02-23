@@ -118,16 +118,25 @@ fun AppNavigation(navController: NavHostController = rememberNavController()) {
         composable("agency_catalog") {
             CatalogoRefaccionesScreen(
                 onNavigateBack = { navController.popBackStack() },
-                onNavigateToAddParts = { navController.navigate("agency_add_parts") }
+                onNavigateToAddParts = { navController.navigate("agency_add_parts") },
+                onNavigateToEditPart = { partId -> navController.navigate("agency_edit_part/$partId") }
             )
         }
 
         composable("agency_add_parts") {
             AddPartsScreen(
-                onNavigateBack = { navController.popBackStack() },
-                onAddPart = {
-                    navController.popBackStack()
-                }
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            route = "agency_edit_part/{partId}",
+            arguments = listOf(navArgument("partId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val partId = backStackEntry.arguments?.getString("partId").orEmpty()
+            EditPartScreen(
+                partId = partId,
+                onNavigateBack = { navController.popBackStack() }
             )
         }
 
@@ -140,10 +149,7 @@ fun AppNavigation(navController: NavHostController = rememberNavController()) {
 
         composable("agency_add_order") {
             AddOrderScreen(
-                onNavigateBack = { navController.popBackStack() },
-                onAddOrder = {
-                    navController.popBackStack()
-                }
+                onNavigateBack = { navController.popBackStack() }
             )
         }
 

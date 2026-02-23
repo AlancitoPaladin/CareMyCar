@@ -5,11 +5,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,24 +21,43 @@ import androidx.hilt.navigation.compose.hiltViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AddOrderScreen(
+fun EditPartScreen(
+    partId: String,
     onNavigateBack: () -> Unit = {},
-    viewModel: AddOrderViewModel = hiltViewModel()
+    viewModel: EditPartViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
 
-    var clientName by remember { mutableStateOf("") }
-    var vin by remember { mutableStateOf("") }
+    var partName by remember { mutableStateOf("") }
+    var selectedCategory by remember { mutableStateOf("") }
     var selectedYear by remember { mutableStateOf("") }
-    var selectedMake by remember { mutableStateOf("") }
     var selectedModel by remember { mutableStateOf("") }
-    var selectedPartName by remember { mutableStateOf("") }
-    var selectedQuantity by remember { mutableStateOf("") }
+    var selectedMake by remember { mutableStateOf("") }
+    var price by remember { mutableStateOf("") }
+    var quantity by remember { mutableStateOf("") }
+
+    // Initial load
+    LaunchedEffect(partId) {
+        viewModel.loadPartAndCatalog(partId)
+    }
+
+    // Sync form with loaded data
+    LaunchedEffect(uiState.part) {
+        uiState.part?.let { part ->
+            partName = part.name
+            selectedCategory = part.category
+            selectedYear = part.year?.toString() ?: ""
+            selectedModel = part.model ?: ""
+            selectedMake = part.make ?: ""
+            price = part.price.toString()
+            quantity = part.quantity.toString()
+        }
+    }
 
     LaunchedEffect(uiState.isSuccess) {
         if (uiState.isSuccess) {
-            Toast.makeText(context, "Pedido creado con éxito", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "Refacción actualizada con éxito", Toast.LENGTH_SHORT).show()
             viewModel.consumeSuccess()
             onNavigateBack()
         }
@@ -51,7 +68,7 @@ fun AddOrderScreen(
             CenterAlignedTopAppBar(
                 title = {
                     Text(
-                        "Añadir Pedido",
+                        "Editar Refacción",
                         fontWeight = FontWeight.Bold,
                         fontSize = 20.sp,
                         color = Color.White
@@ -78,13 +95,15 @@ fun AddOrderScreen(
                     .height(60.dp)
                     .background(if (uiState.isLoading) Color.Gray else Color(0xFF4FA3D1))
                     .clickable(enabled = !uiState.isLoading) {
-                        viewModel.createOrder(
-                            clientName = clientName,
-                            vin = vin,
+                        viewModel.updatePart(
+                            partId = partId,
+                            name = partName,
+                            category = selectedCategory,
                             make = selectedMake,
                             year = selectedYear,
                             model = selectedModel,
-                            quantity = selectedQuantity
+                            price = price,
+                            quantity = quantity
                         )
                     },
                 contentAlignment = Alignment.Center
@@ -93,7 +112,7 @@ fun AddOrderScreen(
                     CircularProgressIndicator(color = Color.White)
                 } else {
                     Text(
-                        "Confirmar Pedido",
+                        "Guardar Cambios",
                         color = Color.White,
                         fontWeight = FontWeight.Bold,
                         fontSize = 18.sp
@@ -118,26 +137,26 @@ fun AddOrderScreen(
             }
 
             AgencyCustomTextField(
-                label = "Ingrese nombre del cliente *",
-                value = clientName,
-                onValueChange = { clientName = it },
+                label = "Nombre de la pieza *",
+                value = partName,
+                onValueChange = { partName = it },
                 placeholder = "Nombre"
             )
 
-            AgencyCustomTextField(
-                label = "Ingrese VIN *",
-                value = vin,
-                onValueChange = { vin = it },
-                placeholder = "VIN del vehículo"
+            AgencyCustomDropdownField(
+                label = "Categoría *",
+                selectedOption = selectedCategory,
+                onOptionSelected = { selectedCategory = it },
+                options = listOf("Motor", "Frenos", "Suspensión", "Eléctrico", "Carrocería"),
+                placeholder = "Seleccione una categoría"
             )
 
             AgencyCustomDropdownField(
-                label = "Marca *",
+                label = "Marca",
                 selectedOption = selectedMake,
                 onOptionSelected = { 
                     selectedMake = it 
-                    selectedModel = ""
-                    selectedPartName = ""
+                    selectedModel = "" 
                     viewModel.onMakeSelected(it)
                 },
                 options = uiState.availableMakes,
@@ -145,59 +164,35 @@ fun AddOrderScreen(
             )
 
             AgencyCustomDropdownField(
-                label = "Año del Modelo *",
-                selectedOption = selectedYear,
-                onOptionSelected = { selectedYear = it },
-                options = uiState.availableYears,
-                placeholder = "Año"
-            )
-
-            AgencyCustomDropdownField(
-                label = "Modelo *",
+                label = "Modelo",
                 selectedOption = selectedModel,
-                onOptionSelected = { 
-                    selectedModel = it 
-                    selectedPartName = ""
-                    viewModel.onModelSelected(selectedMake, it)
-                },
+                onOptionSelected = { selectedModel = it },
                 options = uiState.availableModels,
-                placeholder = "Modelo",
+                placeholder = "Seleccione Modelo",
                 enabled = selectedMake.isNotBlank()
             )
 
             AgencyCustomDropdownField(
-                label = "Seleccione Refacción *",
-                selectedOption = selectedPartName,
-                onOptionSelected = { 
-                    selectedPartName = it 
-                    viewModel.onPartSelected(it)
-                },
-                options = uiState.availablePartsForModel.map { it.name },
-                placeholder = "Pieza",
-                enabled = selectedModel.isNotBlank()
+                label = "Año",
+                selectedOption = selectedYear,
+                onOptionSelected = { selectedYear = it },
+                options = uiState.availableYears,
+                placeholder = "Seleccione año"
             )
 
-            AgencyCustomDropdownField(
+            AgencyCustomTextField(
+                label = "Precio *",
+                value = price,
+                onValueChange = { price = it },
+                placeholder = "Ingrese Precio final"
+            )
+
+            AgencyCustomTextField(
                 label = "Cantidad *",
-                selectedOption = selectedQuantity,
-                onOptionSelected = { selectedQuantity = it },
-                options = (1..5).map { it.toString() },
-                placeholder = "Cantidad",
-                enabled = selectedPartName.isNotBlank()
+                value = quantity,
+                onValueChange = { quantity = it },
+                placeholder = "Ingrese cantidad disponible"
             )
-
-            if (uiState.selectedPart != null) {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F0F5))
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text("Detalles de la pieza:", fontWeight = FontWeight.Bold)
-                        Text("Precio Unitario: $${uiState.selectedPart!!.price}")
-                        Text("Stock Disponible: ${uiState.selectedPart!!.quantity}")
-                    }
-                }
-            }
 
             Spacer(modifier = Modifier.height(24.dp))
         }
