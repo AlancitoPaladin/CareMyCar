@@ -19,45 +19,40 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.itsm.caremycar.vehicle.Order
 
 enum class EstadoPedido(val label: String, val color: Color, val icon: ImageVector) {
     PENDIENTE("Pendiente", Color(0xFFFFA000), Icons.Default.Info),
-    EN_PROCESO("En Proceso", Color(0xFF1976D2), Icons.Default.Refresh),
-    COMPLETADO("Completado", Color(0xFF388E3C), Icons.Default.CheckCircle),
-    CANCELADO("Cancelado", Color(0xFFD32F2F), Icons.Default.Close)
+    CONFIRMADO("Confirmado", Color(0xFF1976D2), Icons.Default.CheckCircle),
+    ENTREGADO("Entregado", Color(0xFF388E3C), Icons.Default.LocalShipping),
+    CANCELADO("Cancelado", Color(0xFFD32F2F), Icons.Default.Close);
+
+    companion object {
+        fun fromString(status: String): EstadoPedido {
+            return when (status.lowercase()) {
+                "confirmed" -> CONFIRMADO
+                "delivered" -> ENTREGADO
+                "canceled" -> CANCELADO
+                else -> PENDIENTE
+            }
+        }
+    }
 }
 
-data class Pedido(
-    val id: Int,
-    val clienteNombre: String,
-    val producto: String,
-    val fecha: String,
-    val precio: Double,
-    val estado: EstadoPedido
-)
-@Preview
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PedidosScreen(
-    pedidos: List<Pedido> = emptyList(),
-    pedidosFiltrados: List<Pedido> = emptyList(),
-    searchText: String = "",
-    selectedEstadoFilter: EstadoPedido? = null,
-    showDetailsDialog: Boolean = false,
-    selectedPedido: Pedido? = null,
-    onSearchTextChange: (String) -> Unit = {},
-    onEstadoFilterChange: (EstadoPedido?) -> Unit = {},
+    onNavigateBack: () -> Unit = {},
     onNavigateToAddOrder: () -> Unit = {},
-    onDetailsDialogShow: (Pedido) -> Unit = {},
-    onDetailsDialogDismiss: () -> Unit = {},
-    onEstadoChange: (Int, EstadoPedido) -> Unit = { _, _ -> },
-    onNavigateBack: () -> Unit = {}
+    viewModel: OrdersAgencyViewModel = hiltViewModel()
 ) {
+    val uiState by viewModel.uiState.collectAsState()
+    var selectedOrder by remember { mutableStateOf<Order?>(null) }
+
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
@@ -82,27 +77,21 @@ fun PedidosScreen(
                     }
                 },
                 actions = {
-                    Badge(
-                        containerColor = Color.White,
-                        contentColor = Color(0xFF4FA3D1)
-                    ) {
+                    Box(modifier = Modifier.padding(end = 16.dp)) {
                         Text(
-                            text = pedidos.count {
-                                it.estado == EstadoPedido.EN_PROCESO ||
-                                        it.estado == EstadoPedido.PENDIENTE
-                            }.toString(),
+                            text = "Pendientes: ${uiState.pendingCount}",
+                            color = Color.White,
                             fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 4.dp)
+                            fontSize = 14.sp
                         )
                     }
-                    Spacer(modifier = Modifier.width(8.dp))
                 }
             )
         },
         containerColor = Color(0xFFF5F5F5),
         floatingActionButton = {
             FloatingActionButton(
-                onClick = onNavigateToAddOrder, // Updated to use navigation
+                onClick = onNavigateToAddOrder,
                 containerColor = Color(0xFF4FA3D1),
                 contentColor = Color.White,
                 shape = RoundedCornerShape(16.dp)
@@ -122,46 +111,40 @@ fun PedidosScreen(
                 .padding(20.dp)
         ) {
             SearchBar(
-                searchText = searchText,
-                onSearchTextChange = onSearchTextChange
+                searchText = uiState.searchQuery,
+                onSearchTextChange = { viewModel.onSearchQueryChange(it) }
             )
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            FilterChipsRow(
-                pedidos = pedidos,
-                selectedEstadoFilter = selectedEstadoFilter,
-                onEstadoFilterChange = onEstadoFilterChange
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            if (searchText.isNotEmpty() || selectedEstadoFilter != null) {
-                Text(
-                    text = "${pedidosFiltrados.size} resultado(s)",
-                    fontSize = 14.sp,
-                    color = Color.Gray,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
-            }
-
-            if (pedidosFiltrados.isEmpty()) {
+            if (uiState.isLoading) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = Color(0xFF4FA3D1))
+                }
+            } else if (uiState.orders.isEmpty()) {
                 EmptyState()
             } else {
-                PedidosList(
-                    pedidos = pedidosFiltrados,
-                    onPedidoClick = onDetailsDialogShow
-                )
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(uiState.orders) { order ->
+                        PedidoCard(
+                            order = order,
+                            onClick = { selectedOrder = order }
+                        )
+                    }
+                }
             }
         }
     }
 
-    if (showDetailsDialog && selectedPedido != null) {
-        PedidoDetailsDialog(
-            pedido = selectedPedido,
-            onDismiss = onDetailsDialogDismiss,
-            onEstadoChange = { nuevoEstado ->
-                onEstadoChange(selectedPedido.id, nuevoEstado)
+    if (selectedOrder != null) {
+        OrderDetailsDialog(
+            order = selectedOrder!!,
+            onDismiss = { selectedOrder = null },
+            onStatusChange = { newStatus ->
+                viewModel.updateOrderStatus(selectedOrder!!.id, newStatus)
+                selectedOrder = null
             }
         )
     }
@@ -175,155 +158,50 @@ private fun SearchBar(
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(50.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = Color.White
-        ),
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = 4.dp
-        )
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 12.dp),
+                .padding(horizontal = 20.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                Icons.Default.Search,
-                contentDescription = "Buscar",
-                tint = Color.Gray,
-                modifier = Modifier.size(24.dp)
-            )
-
+            Icon(Icons.Default.Search, "Buscar", tint = Color.Gray)
             Spacer(modifier = Modifier.width(12.dp))
-
             TextField(
                 value = searchText,
                 onValueChange = onSearchTextChange,
-                placeholder = {
-                    Text(
-                        "Buscar por cliente o producto...",
-                        color = Color.Gray,
-                        fontSize = 16.sp
-                    )
-                },
+                placeholder = { Text("Buscar por cliente o pieza...", color = Color.Gray) },
                 colors = TextFieldDefaults.colors(
                     focusedContainerColor = Color.Transparent,
                     unfocusedContainerColor = Color.Transparent,
-                    disabledContainerColor = Color.Transparent,
                     focusedIndicatorColor = Color.Transparent,
                     unfocusedIndicatorColor = Color.Transparent,
                 ),
                 modifier = Modifier.weight(1f),
                 singleLine = true
             )
-
-            if (searchText.isNotEmpty()) {
-                IconButton(onClick = { onSearchTextChange("") }) {
-                    Icon(
-                        Icons.Default.Close,
-                        contentDescription = "Limpiar búsqueda",
-                        tint = Color.Gray
-                    )
-                }
-            }
         }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun FilterChipsRow(
-    pedidos: List<Pedido>,
-    selectedEstadoFilter: EstadoPedido?,
-    onEstadoFilterChange: (EstadoPedido?) -> Unit
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        FilterChip(
-            selected = selectedEstadoFilter == null,
-            onClick = { onEstadoFilterChange(null) },
-            label = { Text("Todos (${pedidos.size})") },
-            leadingIcon = {
-                Icon(
-                    Icons.AutoMirrored.Filled.List,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp)
-                )
-            }
-        )
-
-        FilterChip(
-            selected = selectedEstadoFilter == EstadoPedido.PENDIENTE,
-            onClick = {
-                onEstadoFilterChange(
-                    if (selectedEstadoFilter == EstadoPedido.PENDIENTE) null
-                    else EstadoPedido.PENDIENTE
-                )
-            },
-            label = {
-                Text("Pendientes (${pedidos.count { it.estado == EstadoPedido.PENDIENTE }})")
-            },
-            leadingIcon = {
-                Icon(
-                    EstadoPedido.PENDIENTE.icon,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp)
-                )
-            }
-        )
     }
 }
 
 @Composable
 private fun EmptyState() {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Icon(
-                Icons.Default.SearchOff,
-                contentDescription = null,
-                modifier = Modifier.size(64.dp),
-                tint = Color.Gray
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                "No se encontraron pedidos",
-                fontSize = 16.sp,
-                color = Color.Gray
-            )
-        }
-    }
-}
-
-@Composable
-private fun PedidosList(
-    pedidos: List<Pedido>,
-    onPedidoClick: (Pedido) -> Unit
-) {
-    LazyColumn(
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        items(pedidos) { pedido ->
-            PedidoCard(
-                pedido = pedido,
-                onClick = { onPedidoClick(pedido) }
-            )
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(Icons.Default.Inbox, null, modifier = Modifier.size(64.dp), tint = Color.Gray)
+            Text("No hay pedidos registrados", color = Color.Gray)
         }
     }
 }
 
 @Composable
 fun PedidoCard(
-    pedido: Pedido,
+    order: Order,
     onClick: () -> Unit
 ) {
+    val status = EstadoPedido.fromString(order.status)
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -333,81 +211,53 @@ fun PedidoCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
-            modifier = Modifier
-                .padding(16.dp)
-                .fillMaxWidth(),
+            modifier = Modifier.padding(16.dp).fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(CircleShape)
-                    .background(pedido.estado.color.copy(alpha = 0.1f)),
+                modifier = Modifier.size(48.dp).clip(CircleShape).background(status.color.copy(alpha = 0.1f)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = pedido.estado.icon,
-                    contentDescription = null,
-                    tint = pedido.estado.color
-                )
+                Icon(status.icon, null, tint = status.color)
             }
             Spacer(modifier = Modifier.width(16.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = pedido.clienteNombre,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp
-                )
-                Text(
-                    text = pedido.producto,
-                    color = Color.Gray,
-                    fontSize = 14.sp
-                )
+                Text(order.clientName, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Text(order.partName ?: "Sin nombre", color = Color.Gray, fontSize = 14.sp)
             }
             Column(horizontalAlignment = Alignment.End) {
-                Text(
-                    text = "$${pedido.precio}",
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF4FA3D1)
-                )
-                Text(
-                    text = pedido.fecha,
-                    color = Color.Gray,
-                    fontSize = 12.sp
-                )
+                Text("$${order.totalPrice}", fontWeight = FontWeight.Bold, color = Color(0xFF4FA3D1))
+                Text(status.label, color = status.color, fontSize = 12.sp)
             }
         }
     }
 }
 
 @Composable
-fun PedidoDetailsDialog(
-    pedido: Pedido,
+fun OrderDetailsDialog(
+    order: Order,
     onDismiss: () -> Unit,
-    onEstadoChange: (EstadoPedido) -> Unit
+    onStatusChange: (String) -> Unit
 ) {
     Dialog(onDismissRequest = onDismiss) {
         Card(
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = Color.White)
         ) {
-            Column(
-                modifier = Modifier.padding(24.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
+            Column(modifier = Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Text("Detalles del Pedido", fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                Text("Cliente: ${pedido.clienteNombre}")
-                Text("Producto: ${pedido.producto}")
-                Text("Precio: $${pedido.precio}")
-                Text("Estado: ${pedido.estado.label}")
+                Text("Cliente: ${order.clientName}")
+                Text("Pieza: ${order.partName}")
+                Text("Vehículo: ${order.make} ${order.model} (${order.year})")
+                Text("VIN: ${order.vin}")
+                Text("Total: $${order.totalPrice}")
                 HorizontalDivider()
                 Text("Cambiar Estado:", fontWeight = FontWeight.Bold)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    EstadoPedido.entries.forEach { estado ->
-                        IconButton(onClick = { onEstadoChange(estado); onDismiss() }) {
-                            Icon(estado.icon, contentDescription = estado.label, tint = estado.color)
-                        }
-                    }
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                    statusButton(EstadoPedido.PENDIENTE, "pending", onStatusChange)
+                    statusButton(EstadoPedido.CONFIRMADO, "confirmed", onStatusChange)
+                    statusButton(EstadoPedido.ENTREGADO, "delivered", onStatusChange)
+                    statusButton(EstadoPedido.CANCELADO, "canceled", onStatusChange)
                 }
                 Button(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) { Text("Cerrar") }
             }
@@ -415,3 +265,9 @@ fun PedidoDetailsDialog(
     }
 }
 
+@Composable
+fun statusButton(estado: EstadoPedido, statusKey: String, onStatusChange: (String) -> Unit) {
+    IconButton(onClick = { onStatusChange(statusKey) }) {
+        Icon(estado.icon, contentDescription = estado.label, tint = estado.color)
+    }
+}

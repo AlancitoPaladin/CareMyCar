@@ -5,11 +5,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,9 +21,10 @@ import androidx.hilt.navigation.compose.hiltViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AddPartsScreen(
+fun EditPartScreen(
+    partId: String,
     onNavigateBack: () -> Unit = {},
-    viewModel: AddPartsViewModel = hiltViewModel()
+    viewModel: EditPartViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
@@ -38,9 +37,27 @@ fun AddPartsScreen(
     var price by remember { mutableStateOf("") }
     var quantity by remember { mutableStateOf("") }
 
+    // Initial load
+    LaunchedEffect(partId) {
+        viewModel.loadPartAndCatalog(partId)
+    }
+
+    // Sync form with loaded data
+    LaunchedEffect(uiState.part) {
+        uiState.part?.let { part ->
+            partName = part.name
+            selectedCategory = part.category
+            selectedYear = part.year?.toString() ?: ""
+            selectedModel = part.model ?: ""
+            selectedMake = part.make ?: ""
+            price = part.price.toString()
+            quantity = part.quantity.toString()
+        }
+    }
+
     LaunchedEffect(uiState.isSuccess) {
         if (uiState.isSuccess) {
-            Toast.makeText(context, "Refacción añadida con éxito", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "Refacción actualizada con éxito", Toast.LENGTH_SHORT).show()
             viewModel.consumeSuccess()
             onNavigateBack()
         }
@@ -51,18 +68,14 @@ fun AddPartsScreen(
             CenterAlignedTopAppBar(
                 title = {
                     Text(
-                        "Añadir Refacción",
+                        "Editar Refacción",
                         fontWeight = FontWeight.Bold,
                         fontSize = 20.sp,
                         color = Color.White
                     )
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFF4FA3D1),
-                    scrolledContainerColor = Color.Unspecified,
-                    navigationIconContentColor = Color.Unspecified,
-                    titleContentColor = Color.Unspecified,
-                    actionIconContentColor = Color.Unspecified
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = Color(0xFF4FA3D1)
                 ),
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
@@ -82,7 +95,8 @@ fun AddPartsScreen(
                     .height(60.dp)
                     .background(if (uiState.isLoading) Color.Gray else Color(0xFF4FA3D1))
                     .clickable(enabled = !uiState.isLoading) {
-                        viewModel.addPart(
+                        viewModel.updatePart(
+                            partId = partId,
                             name = partName,
                             category = selectedCategory,
                             make = selectedMake,
@@ -98,7 +112,7 @@ fun AddPartsScreen(
                     CircularProgressIndicator(color = Color.White)
                 } else {
                     Text(
-                        "Confirmar Refacción",
+                        "Guardar Cambios",
                         color = Color.White,
                         fontWeight = FontWeight.Bold,
                         fontSize = 18.sp
@@ -133,7 +147,7 @@ fun AddPartsScreen(
                 label = "Categoría *",
                 selectedOption = selectedCategory,
                 onOptionSelected = { selectedCategory = it },
-                options = listOf("frenos", "suspension", "motor", "transmision", "electrico", "filtros", "aceites", "llantas", "carroceria", "otros"),
+                options = listOf("Motor", "Frenos", "Suspensión", "Eléctrico", "Carrocería"),
                 placeholder = "Seleccione una categoría"
             )
 
@@ -181,108 +195,6 @@ fun AddPartsScreen(
             )
 
             Spacer(modifier = Modifier.height(24.dp))
-        }
-    }
-}
-
-@Composable
-fun AgencyCustomTextField(
-    label: String,
-    value: String,
-    onValueChange: (String) -> Unit,
-    placeholder: String
-) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Text(
-            text = label,
-            fontSize = 14.sp,
-            color = Color.Gray,
-            modifier = Modifier.padding(start = 4.dp, bottom = 4.dp)
-        )
-        TextField(
-            value = value,
-            onValueChange = onValueChange,
-            placeholder = { Text(placeholder, color = Color.LightGray) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp),
-            colors = TextFieldDefaults.colors(
-                focusedContainerColor = Color(0xFFE8F0F5),
-                unfocusedContainerColor = Color(0xFFE8F0F5),
-                disabledContainerColor = Color(0xFFE8F0F5),
-                focusedIndicatorColor = Color(0xFF4FA3D1),
-                unfocusedIndicatorColor = Color.Transparent,
-            ),
-            shape = RoundedCornerShape(8.dp),
-            singleLine = true
-        )
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun AgencyCustomDropdownField(
-    label: String,
-    selectedOption: String,
-    onOptionSelected: (String) -> Unit,
-    options: List<String>,
-    placeholder: String,
-    enabled: Boolean = true
-) {
-    var expanded by remember { mutableStateOf(false) }
-
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Text(
-            text = label,
-            fontSize = 14.sp,
-            color = if (enabled) Color.Gray else Color.LightGray,
-            modifier = Modifier.padding(start = 4.dp, bottom = 4.dp)
-        )
-        ExposedDropdownMenuBox(
-            expanded = expanded && enabled,
-            onExpandedChange = { if (enabled) expanded = !expanded }
-        ) {
-            TextField(
-                value = selectedOption,
-                onValueChange = {},
-                readOnly = true,
-                enabled = enabled,
-                placeholder = { Text(placeholder, color = Color.LightGray) },
-                trailingIcon = {
-                    Icon(
-                        Icons.Default.KeyboardArrowDown,
-                        contentDescription = null,
-                        tint = if (enabled) Color(0xFF4FA3D1) else Color.LightGray
-                    )
-                },
-                modifier = Modifier
-                    .menuAnchor(MenuAnchorType.PrimaryNotEditable)
-                    .fillMaxWidth()
-                    .height(56.dp),
-                colors = TextFieldDefaults.colors(
-                    focusedContainerColor = Color(0xFFE8F0F5),
-                    unfocusedContainerColor = Color(0xFFE8F0F5),
-                    disabledContainerColor = Color(0xFFF2F2F2),
-                    focusedIndicatorColor = Color(0xFF4FA3D1),
-                    unfocusedIndicatorColor = Color.Transparent,
-                ),
-                shape = RoundedCornerShape(8.dp)
-            )
-            ExposedDropdownMenu(
-                expanded = expanded && enabled,
-                onDismissRequest = { expanded = false },
-                modifier = Modifier.background(Color.White)
-            ) {
-                options.forEach { option ->
-                    DropdownMenuItem(
-                        text = { Text(option) },
-                        onClick = {
-                            onOptionSelected(option)
-                            expanded = false
-                        }
-                    )
-                }
-            }
         }
     }
 }

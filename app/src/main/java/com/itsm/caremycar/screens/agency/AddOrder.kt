@@ -1,59 +1,50 @@
 package com.itsm.caremycar.screens.agency
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material3.CenterAlignedTopAppBar
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MenuAnchorType
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.itsm.caremycar.ui.theme.CareMyCarTheme
+import androidx.hilt.navigation.compose.hiltViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddOrderScreen(
     onNavigateBack: () -> Unit = {},
-    onAddOrder: () -> Unit = {}
+    viewModel: AddOrderViewModel = hiltViewModel()
 ) {
+    val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
+
     var clientName by remember { mutableStateOf("") }
     var vin by remember { mutableStateOf("") }
     var selectedYear by remember { mutableStateOf("") }
+    var selectedMake by remember { mutableStateOf("") }
     var selectedModel by remember { mutableStateOf("") }
-    var selectedPart by remember { mutableStateOf("") }
+    var selectedPartName by remember { mutableStateOf("") }
     var selectedQuantity by remember { mutableStateOf("") }
+
+    LaunchedEffect(uiState.isSuccess) {
+        if (uiState.isSuccess) {
+            Toast.makeText(context, "Pedido creado con éxito", Toast.LENGTH_SHORT).show()
+            viewModel.consumeSuccess()
+            onNavigateBack()
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -66,12 +57,8 @@ fun AddOrderScreen(
                         color = Color.White
                     )
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFF4FA3D1),
-                    scrolledContainerColor = Color.Unspecified,
-                    navigationIconContentColor = Color.Unspecified,
-                    titleContentColor = Color.Unspecified,
-                    actionIconContentColor = Color.Unspecified
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = Color(0xFF4FA3D1)
                 ),
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
@@ -89,16 +76,29 @@ fun AddOrderScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(60.dp)
-                    .background(Color(0xFF4FA3D1))
-                    .clickable { onAddOrder() },
+                    .background(if (uiState.isLoading) Color.Gray else Color(0xFF4FA3D1))
+                    .clickable(enabled = !uiState.isLoading) {
+                        viewModel.createOrder(
+                            clientName = clientName,
+                            vin = vin,
+                            make = selectedMake,
+                            year = selectedYear,
+                            model = selectedModel,
+                            quantity = selectedQuantity
+                        )
+                    },
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    "Confirmar Pedido",
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 18.sp
-                )
+                if (uiState.isLoading) {
+                    CircularProgressIndicator(color = Color.White)
+                } else {
+                    Text(
+                        "Confirmar Pedido",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp
+                    )
+                }
             }
         },
         containerColor = Color(0xFFF5F5F5)
@@ -113,167 +113,93 @@ fun AddOrderScreen(
         ) {
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Input fields based on the image style
-            CustomTextField(
-                label = "Ingrese nombre del cliente.",
+            if (uiState.error != null) {
+                Text(text = uiState.error!!, color = Color.Red, fontSize = 14.sp)
+            }
+
+            AgencyCustomTextField(
+                label = "Ingrese nombre del cliente *",
                 value = clientName,
                 onValueChange = { clientName = it },
                 placeholder = "Nombre"
             )
 
-            CustomTextField(
-                label = "Ingrese VIN",
+            AgencyCustomTextField(
+                label = "Ingrese VIN *",
                 value = vin,
                 onValueChange = { vin = it },
-                placeholder = "Vin"
+                placeholder = "VIN del vehículo"
             )
 
-            CustomDropdownField(
-                label = "Año del Modelo",
+            AgencyCustomDropdownField(
+                label = "Marca *",
+                selectedOption = selectedMake,
+                onOptionSelected = { 
+                    selectedMake = it 
+                    selectedModel = ""
+                    selectedPartName = ""
+                    viewModel.onMakeSelected(it)
+                },
+                options = uiState.availableMakes,
+                placeholder = "Seleccione Marca"
+            )
+
+            AgencyCustomDropdownField(
+                label = "Año del Modelo *",
                 selectedOption = selectedYear,
                 onOptionSelected = { selectedYear = it },
-                options = listOf("2020", "2021", "2022", "2023", "2024", "2025"),
+                options = uiState.availableYears,
                 placeholder = "Año"
             )
 
-            CustomDropdownField(
-                label = "Modelo",
+            AgencyCustomDropdownField(
+                label = "Modelo *",
                 selectedOption = selectedModel,
-                onOptionSelected = { selectedModel = it },
-                options = listOf("Golf", "Jetta"),
-                placeholder = "Modelo"
+                onOptionSelected = { 
+                    selectedModel = it 
+                    selectedPartName = ""
+                    viewModel.onModelSelected(selectedMake, it)
+                },
+                options = uiState.availableModels,
+                placeholder = "Modelo",
+                enabled = selectedMake.isNotBlank()
             )
 
-            CustomDropdownField(
-                label = "Seleccione Refaccion",
-                selectedOption = selectedPart,
-                onOptionSelected = { selectedPart = it },
-                options = listOf(
-                    "Filtro de Aceite",
-                    "Pastillas de Freno",
-                    "Bujías",
-                    "Amortiguadores"
-                ),
-                placeholder = "Pieza"
+            AgencyCustomDropdownField(
+                label = "Seleccione Refacción *",
+                selectedOption = selectedPartName,
+                onOptionSelected = { 
+                    selectedPartName = it 
+                    viewModel.onPartSelected(it)
+                },
+                options = uiState.availablePartsForModel.map { it.name },
+                placeholder = "Pieza",
+                enabled = selectedModel.isNotBlank()
             )
 
-            CustomDropdownField(
-                label = "Cantidad",
+            AgencyCustomDropdownField(
+                label = "Cantidad *",
                 selectedOption = selectedQuantity,
                 onOptionSelected = { selectedQuantity = it },
-                options = listOf("1", "2", "3", "4", "5"),
-                placeholder = "Pieza"
+                options = (1..5).map { it.toString() },
+                placeholder = "Cantidad",
+                enabled = selectedPartName.isNotBlank()
             )
+
+            if (uiState.selectedPart != null) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F0F5))
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text("Detalles de la pieza:", fontWeight = FontWeight.Bold)
+                        Text("Precio Unitario: $${uiState.selectedPart!!.price}")
+                        Text("Stock Disponible: ${uiState.selectedPart!!.quantity}")
+                    }
+                }
+            }
 
             Spacer(modifier = Modifier.height(24.dp))
         }
-    }
-}
-
-@Composable
-fun CustomTextField(
-    label: String,
-    value: String,
-    onValueChange: (String) -> Unit,
-    placeholder: String
-) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Text(
-            text = label,
-            fontSize = 14.sp,
-            color = Color.Gray,
-            modifier = Modifier.padding(start = 4.dp, bottom = 4.dp)
-        )
-        TextField(
-            value = value,
-            onValueChange = onValueChange,
-            placeholder = { Text(placeholder, color = Color.LightGray) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp),
-            colors = TextFieldDefaults.colors(
-                focusedContainerColor = Color(0xFFE8F0F5),
-                unfocusedContainerColor = Color(0xFFE8F0F5),
-                disabledContainerColor = Color(0xFFE8F0F5),
-                focusedIndicatorColor = Color(0xFF4FA3D1),
-                unfocusedIndicatorColor = Color.Transparent,
-            ),
-            shape = RoundedCornerShape(8.dp),
-            singleLine = true
-        )
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun CustomDropdownField(
-    label: String,
-    selectedOption: String,
-    onOptionSelected: (String) -> Unit,
-    options: List<String>,
-    placeholder: String
-) {
-    var expanded by remember { mutableStateOf(false) }
-
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Text(
-            text = label,
-            fontSize = 14.sp,
-            color = Color.Gray,
-            modifier = Modifier.padding(start = 4.dp, bottom = 4.dp)
-        )
-        ExposedDropdownMenuBox(
-            expanded = expanded,
-            onExpandedChange = { expanded = !expanded }
-        ) {
-            TextField(
-                value = selectedOption,
-                onValueChange = {},
-                readOnly = true,
-                placeholder = { Text(placeholder, color = Color.LightGray) },
-                trailingIcon = {
-                    Icon(
-                        Icons.Default.KeyboardArrowDown,
-                        contentDescription = null,
-                        tint = Color(0xFF4FA3D1)
-                    )
-                },
-                modifier = Modifier
-                    .menuAnchor(MenuAnchorType.PrimaryNotEditable)
-                    .fillMaxWidth()
-                    .height(56.dp),
-                colors = TextFieldDefaults.colors(
-                    focusedContainerColor = Color(0xFFE8F0F5),
-                    unfocusedContainerColor = Color(0xFFE8F0F5),
-                    disabledContainerColor = Color(0xFFE8F0F5),
-                    focusedIndicatorColor = Color(0xFF4FA3D1),
-                    unfocusedIndicatorColor = Color.Transparent,
-                ),
-                shape = RoundedCornerShape(8.dp)
-            )
-            ExposedDropdownMenu(
-                expanded = expanded,
-                onDismissRequest = { expanded = false },
-                modifier = Modifier.background(Color.White)
-            ) {
-                options.forEach { option ->
-                    DropdownMenuItem(
-                        text = { Text(option) },
-                        onClick = {
-                            onOptionSelected(option)
-                            expanded = false
-                        }
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun AddOrderScreenPreview() {
-    CareMyCarTheme {
-        AddOrderScreen()
     }
 }
