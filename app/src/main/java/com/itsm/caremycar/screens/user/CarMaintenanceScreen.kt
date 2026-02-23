@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
@@ -36,7 +35,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.itsm.caremycar.vehicle.MaintenanceRecommendation
@@ -65,10 +63,6 @@ fun CarMaintenanceContent(
     val uiState by viewModel.uiState.collectAsState()
     var serviceType by remember { mutableStateOf("") }
     var serviceTypeExpanded by remember { mutableStateOf(false) }
-    var serviceDate by remember { mutableStateOf("") }
-    var description by remember { mutableStateOf("") }
-    var cost by remember { mutableStateOf("") }
-    var mileage by remember { mutableStateOf("") }
     var orderDate by remember { mutableStateOf("") }
     var orderNotes by remember { mutableStateOf("") }
 
@@ -88,8 +82,6 @@ fun CarMaintenanceContent(
                     recommendations = uiState.recommendations,
                     onUseRecommendation = { rec ->
                         serviceType = rec.serviceLabel
-                        serviceDate = rec.dueDate
-                        mileage = rec.dueKm.toString()
                         orderDate = rec.dueDate
                         viewModel.clearServiceOrderQuote()
                     }
@@ -111,6 +103,39 @@ fun CarMaintenanceContent(
                         text = "Solicitar servicio con agencia",
                         style = MaterialTheme.typography.titleSmall
                     )
+                    ExposedDropdownMenuBox(
+                        expanded = serviceTypeExpanded,
+                        onExpandedChange = { serviceTypeExpanded = !serviceTypeExpanded }
+                    ) {
+                        OutlinedTextField(
+                            value = serviceType,
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Tipo de servicio *") },
+                            trailingIcon = {
+                                ExposedDropdownMenuDefaults.TrailingIcon(expanded = serviceTypeExpanded)
+                            },
+                            modifier = Modifier
+                                .menuAnchor()
+                                .fillMaxWidth(),
+                            singleLine = true
+                        )
+                        DropdownMenu(
+                            expanded = serviceTypeExpanded,
+                            onDismissRequest = { serviceTypeExpanded = false }
+                        ) {
+                            serviceTypeOptions.forEach { option ->
+                                DropdownMenuItem(
+                                    text = { Text(option) },
+                                    onClick = {
+                                        serviceType = option
+                                        serviceTypeExpanded = false
+                                        viewModel.clearServiceOrderQuote()
+                                    }
+                                )
+                            }
+                        }
+                    }
                     OutlinedTextField(
                         value = orderDate,
                         onValueChange = { orderDate = it },
@@ -178,102 +203,6 @@ fun CarMaintenanceContent(
 
         uiState.orderMessage?.let {
             item { Text(text = it, color = MaterialTheme.colorScheme.primary) }
-        }
-
-        item {
-            ExposedDropdownMenuBox(
-                expanded = serviceTypeExpanded,
-                onExpandedChange = { serviceTypeExpanded = !serviceTypeExpanded }
-            ) {
-                OutlinedTextField(
-                    value = serviceType,
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text("Tipo de servicio *") },
-                    trailingIcon = {
-                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = serviceTypeExpanded)
-                    },
-                    modifier = Modifier
-                        .menuAnchor()
-                        .fillMaxWidth(),
-                    singleLine = true
-                )
-                DropdownMenu(
-                    expanded = serviceTypeExpanded,
-                    onDismissRequest = { serviceTypeExpanded = false }
-                ) {
-                    serviceTypeOptions.forEach { option ->
-                        DropdownMenuItem(
-                            text = { Text(option) },
-                            onClick = {
-                                serviceType = option
-                                serviceTypeExpanded = false
-                                viewModel.clearServiceOrderQuote()
-                            }
-                        )
-                    }
-                }
-            }
-        }
-
-        item {
-            OutlinedTextField(
-                value = serviceDate,
-                onValueChange = { serviceDate = it },
-                label = { Text("Fecha de servicio (YYYY-MM-DD) *") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true
-            )
-        }
-        item {
-            OutlinedTextField(
-                value = description,
-                onValueChange = { description = it },
-                label = { Text("Descripción") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true
-            )
-        }
-        item {
-            OutlinedTextField(
-                value = cost,
-                onValueChange = { cost = it },
-                label = { Text("Costo") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
-            )
-        }
-        item {
-            OutlinedTextField(
-                value = mileage,
-                onValueChange = { mileage = it },
-                label = { Text("Kilometraje") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-            )
-        }
-        item {
-            Button(
-                onClick = {
-                    viewModel.createMaintenance(
-                        vehicleId = vehicleId,
-                        serviceType = serviceType,
-                        serviceDate = serviceDate,
-                        description = description,
-                        cost = cost,
-                        mileage = mileage
-                    )
-                },
-                enabled = !uiState.isSaving,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                if (uiState.isSaving) {
-                    CircularProgressIndicator(modifier = Modifier.padding(end = 8.dp), strokeWidth = 2.dp)
-                }
-                Text("Agregar mantenimiento")
-            }
         }
 
         uiState.error?.let {

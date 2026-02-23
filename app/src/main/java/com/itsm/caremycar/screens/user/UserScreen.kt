@@ -19,6 +19,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DirectionsCar
@@ -56,6 +57,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -76,6 +78,7 @@ fun UserScreen(
     viewModel: VehicleViewModel = hiltViewModel(),
     logoutViewModel: LogoutViewModel = hiltViewModel()
 ) {
+    val userPrimaryColor = Color(0xFF4FA3D1)
     val uiState by viewModel.uiState.collectAsState()
     val logoutUiState by logoutViewModel.uiState.collectAsState()
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
@@ -100,8 +103,10 @@ fun UserScreen(
         topBar = {
             TopAppBar(
                 colors = topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.primary
+                    containerColor = userPrimaryColor,
+                    titleContentColor = Color.White,
+                    navigationIconContentColor = Color.White,
+                    actionIconContentColor = Color.White
                 ),
                 title = { Text(if (selectedTab == 0) "Mis vehículos" else "Productos") },
                 actions = {
@@ -131,15 +136,15 @@ fun UserScreen(
                         onClick = { showLogoutDialog = true },
                         enabled = !logoutUiState.isLoggingOut
                     ) {
-                        Icon(Icons.Default.ExitToApp, contentDescription = "Cerrar sesión")
+                        Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = "Cerrar sesión")
                     }
                 }
             )
         },
         bottomBar = {
             BottomAppBar(
-                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                contentColor = MaterialTheme.colorScheme.primary
+                containerColor = userPrimaryColor,
+                contentColor = Color.White
             ) {
                 TextButton(
                     onClick = { selectedTab = 0 },
@@ -149,13 +154,11 @@ fun UserScreen(
                         Icon(
                             imageVector = Icons.Default.DirectionsCar,
                             contentDescription = "Mis vehículos",
-                            tint = if (selectedTab == 0) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.onSurfaceVariant
+                            tint = if (selectedTab == 0) Color.White else Color.White.copy(alpha = 0.7f)
                         )
                         Text(
                             text = "  Mis vehículos",
-                            color = if (selectedTab == 0) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.onSurfaceVariant
+                            color = if (selectedTab == 0) Color.White else Color.White.copy(alpha = 0.7f)
                         )
                     }
                 }
@@ -167,13 +170,11 @@ fun UserScreen(
                         Icon(
                             imageVector = Icons.Default.Storefront,
                             contentDescription = "Productos",
-                            tint = if (selectedTab == 1) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.onSurfaceVariant
+                            tint = if (selectedTab == 1) Color.White else Color.White.copy(alpha = 0.7f)
                         )
                         Text(
                             text = "  Productos",
-                            color = if (selectedTab == 1) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.onSurfaceVariant
+                            color = if (selectedTab == 1) Color.White else Color.White.copy(alpha = 0.7f)
                         )
                     }
                 }
@@ -181,7 +182,11 @@ fun UserScreen(
         },
         floatingActionButton = {
             if (selectedTab == 0) {
-                FloatingActionButton(onClick = onAddVehicleClick) {
+                FloatingActionButton(
+                    onClick = onAddVehicleClick,
+                    containerColor = userPrimaryColor,
+                    contentColor = Color.White
+                ) {
                     Icon(Icons.Default.Add, contentDescription = "Agregar vehículo")
                 }
             }

@@ -70,8 +70,12 @@ fun RemindersScreen(
                         )
                     }
                 },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = Color(0xFF4FA3D1)
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color(0xFF4FA3D1),
+                    scrolledContainerColor = Color.Unspecified,
+                    navigationIconContentColor = Color.Unspecified,
+                    titleContentColor = Color.Unspecified,
+                    actionIconContentColor = Color.Unspecified
                 )
             )
         },
