@@ -1,29 +1,28 @@
 package com.itsm.caremycar.screens.user
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DirectionsCar
-import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Storefront
@@ -54,12 +53,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -136,7 +134,10 @@ fun UserScreen(
                         onClick = { showLogoutDialog = true },
                         enabled = !logoutUiState.isLoggingOut
                     ) {
-                        Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = "Cerrar sesión")
+                        Icon(
+                            Icons.AutoMirrored.Filled.ExitToApp,
+                            contentDescription = "Cerrar sesión"
+                        )
                     }
                 }
             )
@@ -516,47 +517,4 @@ private fun DeleteVehicleDialog(
             }
         }
     )
-}
-
-@Preview(showBackground = true)
-@Composable
-private fun UserScreenPreview() {
-    val previewState = VehicleUiState(
-        vehicles = listOf(
-            Vehicle(
-                id = "1",
-                make = "Toyota",
-                model = "Corolla",
-                year = 2020,
-                color = "Rojo",
-                vehicleType = "sedan",
-                transmission = "Automática",
-                fuelType = "Gasolina",
-                currentMileage = 54210.0,
-                imageUrls = emptyList()
-            ),
-            Vehicle(
-                id = "2",
-                make = "Mazda",
-                model = "CX-5",
-                year = 2019,
-                color = "Blanco",
-                vehicleType = "suv",
-                transmission = "Automática",
-                fuelType = "Gasolina",
-                currentMileage = 61234.0,
-                imageUrls = emptyList()
-            )
-        )
-    )
-
-    Scaffold {
-        UserScreenContent(
-            innerPadding = it,
-            uiState = previewState,
-            onRetry = {},
-            onVehicleClick = {},
-            onDeleteVehicleClick = {}
-        )
-    }
 }

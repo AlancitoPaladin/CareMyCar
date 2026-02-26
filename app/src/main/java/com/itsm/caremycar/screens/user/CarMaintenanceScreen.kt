@@ -1,5 +1,7 @@
 package com.itsm.caremycar.screens.user
 
+import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -51,6 +53,7 @@ import java.time.ZoneId
 import java.text.NumberFormat
 import java.util.Locale
 
+@RequiresApi(Build.VERSION_CODES.O)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CarMaintenanceContent(
@@ -399,6 +402,7 @@ private fun toMxn(amount: Double): String {
     return NumberFormat.getCurrencyInstance(localeMx).format(amount)
 }
 
+@RequiresApi(Build.VERSION_CODES.O)
 private fun millisToDateString(millis: Long): String {
     return Instant.ofEpochMilli(millis)
         .atZone(ZoneId.systemDefault())
@@ -406,6 +410,7 @@ private fun millisToDateString(millis: Long): String {
         .toString()
 }
 
+@RequiresApi(Build.VERSION_CODES.O)
 private fun orderDateToMillis(orderDate: String): Long? {
     return try {
         LocalDate.parse(orderDate)
@@ -417,6 +422,7 @@ private fun orderDateToMillis(orderDate: String): Long? {
     }
 }
 
+@RequiresApi(Build.VERSION_CODES.O)
 private fun todayUtcMillis(): Long {
     return LocalDate.now()
         .atStartOfDay(ZoneId.systemDefault())
